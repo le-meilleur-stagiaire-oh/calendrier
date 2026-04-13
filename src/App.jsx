@@ -1,25 +1,25 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, orderBy, deleteDoc } from "firebase/firestore";
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 
-// Firebase config — replace with your own values from Firebase Console
+// Firebase config
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
 };
 
 let db = null;
-let storage = null;
 try {
   const app = initializeApp(firebaseConfig);
   db = getFirestore(app);
-  storage = getStorage(app);
 } catch (e) {
   console.warn("Firebase not configured, using localStorage fallback");
 }
+
+// Cloudinary config
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "";
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "";
 
 const F = "system-ui, -apple-system, 'Helvetica Neue', Helvetica, sans-serif";
 
@@ -729,7 +729,8 @@ function FeedPreview() {
 
   const handleUpload = async (files) => {
     if (!files || files.length === 0) return;
-    if (!storage || !db) { alert("Firebase non configuré"); return; }
+    if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) { alert("Cloudinary non configuré"); return; }
+    if (!db) { alert("Firebase non configuré"); return; }
 
     setUploading(true);
     setUploadProgress(0);
@@ -738,21 +739,24 @@ function FeedPreview() {
       const total = files.length;
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const timestamp = Date.now();
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const path = `gallery/${selectedDate}_${timestamp}_${safeName}`;
-        const sRef = storageRef(storage, path);
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+        formData.append("folder", "oh_gallery");
 
+        const xhr = new XMLHttpRequest();
         await new Promise((resolve, reject) => {
-          const task = uploadBytesResumable(sRef, file);
-          task.on("state_changed",
-            (snap) => { setUploadProgress(Math.round(((i + snap.bytesTransferred / snap.totalBytes) / total) * 100)); },
-            reject,
-            async () => {
-              const url = await getDownloadURL(task.snapshot.ref);
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              setUploadProgress(Math.round(((i + e.loaded / e.total) / total) * 100));
+            }
+          };
+          xhr.onload = async () => {
+            if (xhr.status === 200) {
+              const result = JSON.parse(xhr.responseText);
               await addDoc(collection(db, "gallery"), {
-                url,
-                storagePath: path,
+                url: result.secure_url,
+                publicId: result.public_id,
                 fileName: file.name,
                 caption: caption.trim(),
                 date: selectedDate,
@@ -760,15 +764,20 @@ function FeedPreview() {
                 fileType: file.type,
               });
               resolve();
+            } else {
+              reject(new Error("Upload échoué"));
             }
-          );
+          };
+          xhr.onerror = reject;
+          xhr.open("POST", `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`);
+          xhr.send(formData);
         });
       }
       setCaption("");
       await loadUploads();
     } catch (e) {
       console.error("Erreur upload", e);
-      alert("Erreur lors de l'upload. Vérifiez les règles Firebase Storage.");
+      alert("Erreur lors de l'upload. Vérifiez votre configuration Cloudinary.");
     }
     setUploading(false);
     setUploadProgress(0);
@@ -777,10 +786,6 @@ function FeedPreview() {
   const handleDelete = async (item) => {
     if (!window.confirm("Supprimer cette image ?")) return;
     try {
-      if (item.storagePath) {
-        const sRef = storageRef(storage, item.storagePath);
-        await deleteObject(sRef);
-      }
       await deleteDoc(doc(db, "gallery", item.id));
       setUploads(prev => prev.filter(u => u.id !== item.id));
     } catch (e) {
