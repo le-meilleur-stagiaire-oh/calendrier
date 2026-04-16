@@ -43,40 +43,16 @@ const BEST_TIMES = {
 
 const HASHTAG_BANK = {
   APG: {
-    "Hôtel & Luxe": ["#apogeecourchevel", "#oetkercollection", "#luxuryhotel", "#palacehotel", "#finesthotels"],
-    "Montagne & Ski": ["#courchevel", "#courchevel1850", "#frenchalps", "#alpineluxury", "#mountainretreat"],
-    "Lifestyle": ["#winterluxury", "#mountainlife", "#apresski", "#cozyvibes", "#luxurylifestyle"],
-    "Travel": ["#luxurytravel", "#courchevel", "#alps", "#winterescape", "#skiholiday"],
-    "Hôtel": ["#luxuryhotel", "#skiinout", "#hotelview", "#suitegoals", "#mountainhotel"],
-    "Esthétique": ["#snowvibes", "#winterwonderland", "#mountainview", "#cozyplaces", "#wintermood"],
-    "Gastronomie": ["#finedining", "#alpinecuisine", "#gastronomie", "#mountaingourmet", "#hautecuisine"],
+    "Tous": ["#lapogeecourchevel", "#oetkerhotels", "#luxuryhotel", "#penthouse", "#courchevel", "#masterpiecehotels", "#teatime", "#pastry", "#hotel", "#winter", "#snow", "#restaurant", "#pastries"],
   },
   CSM: {
-    "Hôtel & Luxe": ["#chateausaintmartin", "#oetkercollection", "#luxuryhotel", "#chateauhotel", "#relaisetchateaux"],
-    "Provence & Vence": ["#provence", "#vence", "#saintpauldevence", "#frenchriviera", "#cotedazur"],
-    "Spa & Bien-être": ["#luxuryspa", "#wellnessretreat", "#spadestination", "#selfcare", "#serenity"],
-    "Lifestyle": ["#slowliving", "#luxurylifestyle", "#quietluxury", "#wellbeing", "#escape"],
-    "Travel": ["#luxurytravel", "#provence", "#cotedazur", "#travelinspo", "#hiddenparadise"],
-    "Hôtel & Spa": ["#luxuryhotel", "#spalife", "#wellnessretreat", "#relaxationmode", "#hotelviews"],
-    "Esthétique": ["#naturelovers", "#sunsetmagic", "#serenity", "#viewpoint", "#peacefulplaces"],
+    "Tous": ["#oetkerhotels", "#Vence", "#summer", "#southoffrance", "#masterpiecehotels", "#luxuryescape", "#dreamstay", "#ChateauStMartin", "#FlavorsAndAmbiance", "#SharedMoments", "#hotel", "#vence"],
   },
   HDCER: {
-    "Hôtel & Luxe": ["#hotelducapedenroc", "#oetkercollection", "#luxuryhotel", "#iconichotel", "#legendaryhotel"],
-    "Côte d'Azur": ["#antibes", "#capdantibes", "#cotedazur", "#frenchriviera", "#mediterranean"],
-    "Plage & Mer": ["#seaview", "#mediterraneansea", "#beachlife", "#seasideelegance", "#bluewater"],
-    "Lifestyle": ["#luxurylifestyle", "#frenchriviera", "#dolcevita", "#summervibes", "#riviera"],
-    "Travel": ["#luxurytravel", "#travelgram", "#wanderlust", "#bucketlisttravel", "#mediterranean"],
-    "Hôtel": ["#luxuryhotel", "#hotellife", "#5starhotel", "#hotelview", "#suitegoals"],
-    "Esthétique": ["#sunsetlovers", "#goldenhour", "#oceanview", "#viewgoals", "#aestheticplaces"],
+    "Tous": ["#hotelducapedenroc", "#oetkerhotels", "#FrenchRiviera", "#LuxuryHotel", "#southoffrance", "#masterpiecehotels", "#VacationGoals", "#HotelduCapEdenRoc", "#OetkerCollection", "#MasterpieceHotels", "#CoteDAzur", "#TimelessElegance", "#LuxuryEscape", "#summer", "#frenchriviera", "#capdantibes"],
   },
   BB: {
-    "Restaurant": ["#beefbar", "#beefbarcourchevel", "#steakhouse", "#finedining", "#meatlovers"],
-    "Gastronomie": ["#gastronomy", "#culinaryart", "#cheflife", "#foodie", "#gourmet"],
-    "Courchevel": ["#courchevel", "#courchevel1850", "#apreski", "#mountaindining", "#alpinedining"],
-    "Food": ["#foodie", "#foodporn", "#meatlovers", "#steaklover", "#gastronomy"],
-    "Lifestyle": ["#luxurylifestyle", "#nightout", "#apresski", "#eveningvibes", "#courchevel"],
-    "Esthétique": ["#foodstagram", "#platingart", "#aestheticfood", "#instafood", "#foodexperience"],
-    "Ambiance": ["#restaurantdesign", "#nightlife", "#diningexperience", "#luxurydining", "#foodandwine"],
+    "Tous": ["#lapogeecourchevel", "#beefbarcourchevel", "#courchevelrestaurant", "#courchevel1850", "#beefbar", "#oetkerhotels", "#courchevel", "#restaurant", "#winterdestination", "#valentinesdays", "#meat"],
   },
 };
 
@@ -170,36 +146,77 @@ function Badge({ text, bg, fg, border: bd }) {
   return <span style={{ display: "inline-block", padding: "1px 7px", borderRadius: 4, background: bg || "transparent", color: fg, fontSize: 10, fontWeight: 600, fontFamily: F, border: bd ? `1px solid ${bd}` : "none", letterSpacing: 0.3 }}>{text}</span>;
 }
 
-function OpenClosedPanel({ openStatus, setOpenStatus, month, onGenerate, onClear }) {
+function OpenClosedPanel({ accountSettings, setAccountSettings, month, onGenerate, onClear }) {
+  const updateSetting = (id, field, value) => {
+    setAccountSettings(prev => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
+  };
+
   return (
     <div style={{ ...cardStyle, padding: 14, marginBottom: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: "#1A365D", letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 10 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: "#1A365D", letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 12 }}>
         Statut des établissements — {MONTHS_FR[month]}
       </div>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {ACCOUNTS.map(a => {
-          const isOpen = openStatus[a.id] !== false;
+          const s = accountSettings[a.id] || { isOpen: true, postsPerWeek: 3, closingDate: "", openingDate: "" };
           return (
-            <button key={a.id} onClick={() => setOpenStatus(prev => ({ ...prev, [a.id]: !isOpen }))}
-              style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 8, border: `1px solid ${a.color}33`, background: isOpen ? a.light : "#F9F9F9", cursor: "pointer", fontFamily: F, fontSize: 12, color: a.color, fontWeight: 500, transition: "all .15s", opacity: isOpen ? 1 : 0.6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: isOpen ? "#4CAF50" : "#CCC" }} />
-              <span style={{ fontWeight: 700 }}>{a.id}</span>
-              <span style={{ color: "#999", fontSize: 11 }}>{isOpen ? "Ouvert — 3/sem" : "Fermé — 2/sem"}</span>
-            </button>
+            <div key={a.id} style={{ padding: "10px 14px", borderRadius: 8, border: `1px solid ${a.color}22`, borderLeft: `3px solid ${a.color}`, background: "#FAFBFC" }}>
+              {/* Top row */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                {/* Open/closed toggle button */}
+                <button
+                  onClick={() => updateSetting(a.id, "isOpen", !s.isOpen)}
+                  style={{ width: 28, height: 28, borderRadius: "50%", border: "none", background: s.isOpen ? "#4CAF50" : "#E53935", cursor: "pointer", flexShrink: 0, transition: "background .2s", boxShadow: "0 1px 3px rgba(0,0,0,.2)" }}
+                  title={s.isOpen ? "Cliquer pour fermer" : "Cliquer pour ouvrir"}
+                />
+                {/* Account name */}
+                <span style={{ fontWeight: 700, fontSize: 13, color: a.color, fontFamily: F, minWidth: 50 }}>{a.id}</span>
+                <span style={{ fontSize: 11, color: "#999", fontFamily: F }}>{a.name}</span>
+                <div style={{ flex: 1 }} />
+                {/* Posts per week input */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <label style={{ fontSize: 11, color: "#999", fontFamily: F, whiteSpace: "nowrap" }}>Posts/sem :</label>
+                  <input
+                    type="number" min="0" max="14" value={s.postsPerWeek}
+                    onChange={e => updateSetting(a.id, "postsPerWeek", e.target.value)}
+                    style={{ width: 48, padding: "4px 6px", borderRadius: 6, border: "1px solid #D0D5DD", fontSize: 13, fontFamily: F, textAlign: "center", color: "#1A365D", fontWeight: 600 }}
+                  />
+                </div>
+              </div>
+              {/* Bottom row — dates */}
+              <div style={{ display: "flex", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <label style={{ fontSize: 10, color: "#BBB", fontFamily: F, whiteSpace: "nowrap" }}>Fermeture :</label>
+                  <input
+                    type="date" value={s.closingDate || ""}
+                    onChange={e => updateSetting(a.id, "closingDate", e.target.value)}
+                    style={{ padding: "3px 6px", borderRadius: 5, border: "1px solid #E8E8E8", fontSize: 11, fontFamily: F, color: "#555" }}
+                  />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <label style={{ fontSize: 10, color: "#BBB", fontFamily: F, whiteSpace: "nowrap" }}>Ouverture :</label>
+                  <input
+                    type="date" value={s.openingDate || ""}
+                    onChange={e => updateSetting(a.id, "openingDate", e.target.value)}
+                    style={{ padding: "3px 6px", borderRadius: 5, border: "1px solid #E8E8E8", fontSize: 11, fontFamily: F, color: "#555" }}
+                  />
+                </div>
+              </div>
+            </div>
           );
         })}
-        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-          {onClear && (
-            <button onClick={onClear} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #E53935", background: "#fff", color: "#E53935", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 500, letterSpacing: 0.5, transition: "all .15s" }}>
-              Effacer le planning
-            </button>
-          )}
-          {onGenerate && (
-            <button onClick={onGenerate} style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid #1A365D", background: "#1A365D", color: "#fff", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 500, letterSpacing: 0.5, transition: "all .15s" }}>
-              Générer le planning du mois
-            </button>
-          )}
-        </div>
+      </div>
+      <div style={{ display: "flex", gap: 6, marginTop: 12, justifyContent: "flex-end" }}>
+        {onClear && (
+          <button onClick={onClear} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #E53935", background: "#fff", color: "#E53935", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 500, letterSpacing: 0.5 }}>
+            Effacer le planning
+          </button>
+        )}
+        {onGenerate && (
+          <button onClick={onGenerate} style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid #1A365D", background: "#1A365D", color: "#fff", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 500, letterSpacing: 0.5 }}>
+            Générer le planning du mois
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1038,7 +1055,14 @@ export default function App() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [posts, setPosts] = useState({});
-  const [openStatus, setOpenStatus] = useState({ APG: true, CSM: true, HDCER: true, BB: true });
+  const [accountSettings, setAccountSettings] = useState({
+    APG:   { isOpen: true, postsPerWeek: 3, closingDate: "", openingDate: "" },
+    CSM:   { isOpen: true, postsPerWeek: 3, closingDate: "", openingDate: "" },
+    HDCER: { isOpen: true, postsPerWeek: 3, closingDate: "", openingDate: "" },
+    BB:    { isOpen: true, postsPerWeek: 3, closingDate: "", openingDate: "" },
+  });
+  // Keep openStatus as a derived alias for backwards compat (Récap, etc.)
+  const openStatus = Object.fromEntries(ACCOUNTS.map(a => [a.id, accountSettings[a.id]?.isOpen !== false]));
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedWeekIdx, setSelectedWeekIdx] = useState(null);
   const [view, setView] = useState("calendar");
@@ -1051,15 +1075,15 @@ export default function App() {
       const load = async () => {
         try {
           const postsDoc = await getDoc(doc(db, "calendar", "posts"));
-          const statusDoc = await getDoc(doc(db, "calendar", "openStatus"));
+          const settingsDoc = await getDoc(doc(db, "calendar", "accountSettings"));
           if (postsDoc.exists() && postsDoc.data().data) { skipSync.current = true; setPosts(postsDoc.data().data); setTimeout(() => { skipSync.current = false; }, 100); }
-          if (statusDoc.exists() && statusDoc.data().data) { skipSync.current = true; setOpenStatus(statusDoc.data().data); setTimeout(() => { skipSync.current = false; }, 100); }
+          if (settingsDoc.exists() && settingsDoc.data().data) { skipSync.current = true; setAccountSettings(settingsDoc.data().data); setTimeout(() => { skipSync.current = false; }, 100); }
         } catch (e) { console.error("Firestore load error", e); }
         setLoaded(true);
       };
       load();
     } else {
-      try { const saved = localStorage.getItem("editorial-cal-v2"); if (saved) { const data = JSON.parse(saved); if (data.posts) setPosts(data.posts); if (data.openStatus) setOpenStatus(data.openStatus); } } catch (e) {}
+      try { const saved = localStorage.getItem("editorial-cal-v2"); if (saved) { const data = JSON.parse(saved); if (data.posts) setPosts(data.posts); if (data.accountSettings) setAccountSettings(data.accountSettings); } } catch (e) {}
       setLoaded(true);
     }
   }, []);
@@ -1069,11 +1093,11 @@ export default function App() {
     if (!loaded || skipSync.current) return;
     if (db) {
       setDoc(doc(db, "calendar", "posts"), { data: posts });
-      setDoc(doc(db, "calendar", "openStatus"), { data: openStatus });
+      setDoc(doc(db, "calendar", "accountSettings"), { data: accountSettings });
     } else {
-      try { localStorage.setItem("editorial-cal-v2", JSON.stringify({ posts, openStatus })); } catch (e) {}
+      try { localStorage.setItem("editorial-cal-v2", JSON.stringify({ posts, accountSettings })); } catch (e) {}
     }
-  }, [posts, openStatus, loaded]);
+  }, [posts, accountSettings, loaded]);
 
   const weeks = getWeeksOfMonth(year, month);
   const monthPrefix = `${year}-${String(month+1).padStart(2,"0")}`;
@@ -1087,58 +1111,68 @@ export default function App() {
   const generatePlanning = () => {
     const newPosts = { ...posts };
     const types = ["Photo", "Carrousel", "Reel"];
-    const dim = getDaysInMonth(year, month);
-
-    // Fixed weeks: S1=1-7, S2=8-14, S3=15-21, S4=22-end
-    const fixedWeeks = [
-      Array.from({length: 7}, (_, i) => i + 1).filter(d => d <= dim),
-      Array.from({length: 7}, (_, i) => i + 8).filter(d => d <= dim),
-      Array.from({length: 7}, (_, i) => i + 15).filter(d => d <= dim),
-      Array.from({length: dim - 21}, (_, i) => i + 22).filter(d => d <= dim),
-    ];
 
     ACCOUNTS.forEach(a => {
-      const isOpen = openStatus[a.id] !== false;
-      const postsPerWeek = isOpen ? 3 : 2;
+      const settings = accountSettings[a.id] || { postsPerWeek: 3 };
+      const postsPerWeek = Math.max(1, parseInt(settings.postsPerWeek) || 3);
       let typeIdx = 0;
-      let lastPickedDay = -10;
 
-      // For each fixed week, pick exactly postsPerWeek days
-      fixedWeeks.forEach(weekDays => {
-        // Get weekdays (Mon-Fri) in this week
-        const weekdaysInWeek = weekDays.filter(d => {
-          const dow = new Date(year, month, d).getDay();
-          return dow >= 1 && dow <= 5;
+      // Build the 4 ISO weeks that cover this month.
+      // Each week starts on Monday. We find the Monday of the week containing day 1.
+      const firstOfMonth = new Date(year, month, 1);
+      const dow1 = firstOfMonth.getDay(); // 0=Sun
+      const mondayOffset = dow1 === 0 ? -6 : 1 - dow1;
+      const firstMonday = new Date(year, month, 1 + mondayOffset);
+
+      // Generate 4 full weeks (Mon–Sun) starting from that Monday
+      const weeks = Array.from({ length: 4 }, (_, wi) => {
+        return Array.from({ length: 7 }, (_, di) => {
+          const d = new Date(firstMonday);
+          d.setDate(firstMonday.getDate() + wi * 7 + di);
+          return d;
         });
+      });
 
-        // Pick days with at least 2 days gap
-        let pickedInWeek = 0;
-        for (let i = 0; i < weekdaysInWeek.length && pickedInWeek < postsPerWeek; i++) {
-          const day = weekdaysInWeek[i];
+      weeks.forEach(weekDays => {
+        // Spread postsPerWeek posts as evenly as possible over 7 days
+        const postsPerDay = Math.floor(postsPerWeek / 7);
+        const extra = postsPerWeek % 7; // days that get one more post
 
-          // Ensure at least 2 days gap from last picked day for this account
-          if (day - lastPickedDay < 2) continue;
-
-          const dateKey = fmtDate(year, month, day);
-          const existing = newPosts[dateKey] || [];
-
-          // Skip if this account already has a post on this day
-          if (existing.some(p => p.account === a.id)) continue;
-
-          existing.push({
-            account: a.id,
-            type: types[typeIdx % types.length],
-            subject: "",
-            caption: "",
-            credits: "",
-            mediaItems: [],
-            status: "Brouillon",
-          });
-          typeIdx++;
-          newPosts[dateKey] = existing;
-          lastPickedDay = day;
-          pickedInWeek++;
+        // Choose which days get the extra post (random but deterministic within generation)
+        const extraDays = new Set();
+        if (extra > 0) {
+          const indices = Array.from({ length: 7 }, (_, i) => i);
+          // Shuffle with a simple deterministic seed based on account+week
+          const seed = a.id.charCodeAt(0) + weekDays[0].getDate();
+          indices.sort((x, y) => ((x * 1664525 + seed) % 7) - ((y * 1664525 + seed) % 7));
+          indices.slice(0, extra).forEach(i => extraDays.add(i));
         }
+
+        weekDays.forEach((date, di) => {
+          const postsThisDay = postsPerDay + (extraDays.has(di) ? 1 : 0);
+          if (postsThisDay === 0) return;
+
+          const dateKey = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+
+          // Skip days already generated (e.g. days from prev month picked up by another week)
+          const existing = newPosts[dateKey] || [];
+          const alreadyHas = existing.filter(p => p.account === a.id).length;
+          const toAdd = postsThisDay - alreadyHas;
+
+          for (let k = 0; k < toAdd; k++) {
+            existing.push({
+              account: a.id,
+              type: types[typeIdx % types.length],
+              subject: "",
+              caption: "",
+              credits: "",
+              mediaItems: [],
+              status: "Brouillon",
+            });
+            typeIdx++;
+          }
+          newPosts[dateKey] = existing;
+        });
       });
     });
 
@@ -1178,7 +1212,7 @@ export default function App() {
       )}
 
       {view === "calendar" && (<>
-        <OpenClosedPanel openStatus={openStatus} setOpenStatus={setOpenStatus} month={month} onGenerate={generatePlanning} onClear={clearPlanning} />
+        <OpenClosedPanel accountSettings={accountSettings} setAccountSettings={setAccountSettings} month={month} onGenerate={generatePlanning} onClear={clearPlanning} />
         <Stats posts={monthPosts} />
         <CalendarMonth year={year} month={month} posts={posts} onDayClick={handleDayClick} selectedDay={selectedDay} onDeletePost={(dateKey, index) => {
           setPosts(prev => { const u = { ...prev }; const dp = [...(u[dateKey] || [])]; dp.splice(index, 1); if (dp.length === 0) delete u[dateKey]; else u[dateKey] = dp; return u; });
@@ -1210,7 +1244,7 @@ export default function App() {
       </>)}
 
       {view === "recap" && (<>
-        <OpenClosedPanel openStatus={openStatus} setOpenStatus={setOpenStatus} month={month} />
+        <OpenClosedPanel accountSettings={accountSettings} setAccountSettings={setAccountSettings} month={month} />
         <MonthlyRecap year={year} month={month} posts={posts} openStatus={openStatus} />
         <div style={{ marginTop: 16, textAlign: "center" }}><ExportButton year={year} month={month} posts={posts} /></div>
       </>)}
