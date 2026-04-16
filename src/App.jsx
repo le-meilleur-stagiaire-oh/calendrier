@@ -388,13 +388,16 @@ function ExportButton({ year, month, posts }) {
   );
 }
 
-function CalendarMonth({ year, month, posts, onDayClick, selectedDay, onDeletePost }) {
+function CalendarMonth({ year, month, posts, onDayClick, selectedDay, onDeletePost, onDropPost }) {
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDayOfMonth(year, month);
   const cells = [];
   for (let i = 0; i < firstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
+
+  const [dragOver, setDragOver] = useState(null);
+
   return (
     <div style={cardStyle}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: "1px solid #E8E8E8" }}>
@@ -406,8 +409,22 @@ function CalendarMonth({ year, month, posts, onDayClick, selectedDay, onDeletePo
           const dayPosts = dateKey ? (posts[dateKey] || []) : [];
           const isSel = day === selectedDay;
           const isWe = i % 7 >= 5;
+          const isDragTarget = dragOver === dateKey;
           return (
-            <div key={i} onClick={() => day && onDayClick(day)} style={{ minHeight: 90, padding: "4px 6px", borderRight: (i+1) % 7 !== 0 ? "1px solid #F0F0F0" : "none", borderBottom: "1px solid #F0F0F0", cursor: day ? "pointer" : "default", background: isSel ? "#F0F4FA" : isWe && day ? "#FAFAFA" : day ? "#fff" : "#F8F8F8", transition: "background .15s", position: "relative" }}>
+            <div key={i}
+              onClick={() => day && onDayClick(day)}
+              onDragOver={e => { if (!dateKey) return; e.preventDefault(); setDragOver(dateKey); }}
+              onDragLeave={() => setDragOver(null)}
+              onDrop={e => {
+                e.preventDefault();
+                setDragOver(null);
+                if (!dateKey) return;
+                try {
+                  const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+                  if (data.fromDateKey !== dateKey) onDropPost(data.fromDateKey, data.fromIndex, dateKey);
+                } catch {}
+              }}
+              style={{ minHeight: 90, padding: "4px 6px", borderRight: (i+1) % 7 !== 0 ? "1px solid #F0F0F0" : "none", borderBottom: "1px solid #F0F0F0", cursor: day ? "pointer" : "default", background: isDragTarget ? "#E8F0FD" : isSel ? "#F0F4FA" : isWe && day ? "#FAFAFA" : day ? "#fff" : "#F8F8F8", transition: "background .15s", position: "relative", outline: isDragTarget ? "2px dashed #1A365D" : "none" }}>
               {day && (<>
                 <div style={{ fontSize: 13, fontWeight: isSel ? 700 : 400, color: isSel ? "#1A365D" : "#666", fontFamily: F, marginBottom: 4 }}>{day}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -421,8 +438,20 @@ function CalendarMonth({ year, month, posts, onDayClick, selectedDay, onDeletePo
                       "Publié": { letter: "", bg: "#4CAF50", color: "#fff", square: true },
                     };
                     const st = statusMap[p.status || "Brouillon"] || statusMap["Brouillon"];
+                    // First image from mediaItems
+                    const firstImage = (p.mediaItems || []).find(m => m.fileData && m.fileData.startsWith("data:image"));
                     return (
-                      <div key={j} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                      <div key={j}
+                        draggable
+                        onDragStart={e => { e.stopPropagation(); e.dataTransfer.setData("text/plain", JSON.stringify({ fromDateKey: dateKey, fromIndex: j })); }}
+                        onClick={e => e.stopPropagation()}
+                        style={{ display: "flex", alignItems: "center", gap: 3, cursor: "grab", borderRadius: 4, padding: "1px 0" }}>
+                        {/* Thumbnail */}
+                        {firstImage ? (
+                          <img src={firstImage.fileData} style={{ width: 18, height: 18, borderRadius: 3, objectFit: "cover", flexShrink: 0, border: `1px solid ${acc?.color || "#ddd"}44` }} />
+                        ) : (
+                          <div style={{ width: 18, height: 18, borderRadius: 3, background: acc?.color ? `${acc.color}22` : "#F0F0F0", flexShrink: 0, border: `1px solid ${acc?.color || "#ddd"}33` }} />
+                        )}
                         {/* Split badge: account | type */}
                         <div style={{ display: "flex", borderRadius: 4, overflow: "hidden", fontSize: 9, fontWeight: 600, fontFamily: F, lineHeight: 1 }}>
                           <span style={{ padding: "3px 5px", background: acc?.color || "#999", color: "#fff" }}>{p.account}</span>
@@ -438,8 +467,6 @@ function CalendarMonth({ year, month, posts, onDayClick, selectedDay, onDeletePo
                             <span style={{ color: st.color, fontSize: 7, fontWeight: 700, fontFamily: F }}>{st.letter}</span>
                           </span>
                         )}
-                        {/* Media indicator */}
-                        {p.mediaItems && p.mediaItems.length > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#4CAF50", display: "inline-block" }} title={`${p.mediaItems.length} média(s)`} />}
                         {/* Delete */}
                         <span onClick={e => { e.stopPropagation(); onDeletePost(dateKey, j); }}
                           style={{ fontSize: 12, color: "#CCC", cursor: "pointer", marginLeft: "auto", lineHeight: 1, padding: "0 4px", borderRadius: 3 }}
@@ -616,6 +643,50 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
           {copied ? "Copié !" : "Copier la caption"}
         </button>
       )}
+    </div>
+  );
+}
+
+function DayView({ year, month, day, dateKey, dayName, posts, setPosts, onClose }) {
+  const [generatingKey, setGeneratingKey] = useState(null);
+  const handleGenerate = async (index) => {
+    const post = posts[dateKey]?.[index];
+    if (!post?.subject || !post?.account) return;
+    setGeneratingKey(index);
+    const caption = await generateCaption(post.subject, post.account, post.credits || "");
+    setPosts(prev => { const u = { ...prev }; const dp = [...(u[dateKey] || [])]; dp[index] = { ...dp[index], caption }; u[dateKey] = dp; return u; });
+    setGeneratingKey(null);
+  };
+  const addPost = () => { setPosts(prev => { const u = { ...prev }; const dp = [...(u[dateKey] || [])]; dp.push({ account: "", type: "", subject: "", caption: "", credits: "", mediaItems: [], status: "Brouillon" }); u[dateKey] = dp; return u; }); };
+  const updatePost = (index, field, value) => { setPosts(prev => { const u = { ...prev }; const dp = [...(u[dateKey] || [])]; dp[index] = { ...dp[index], [field]: value }; u[dateKey] = dp; return u; }); };
+  const deletePost = (index) => { setPosts(prev => { const u = { ...prev }; const dp = [...(u[dateKey] || [])]; dp.splice(index, 1); if (dp.length === 0) delete u[dateKey]; else u[dateKey] = dp; return u; }); };
+  const duplicatePost = (index, targetDate, targetAccount) => {
+    const post = posts[dateKey]?.[index];
+    if (!post) return;
+    setPosts(prev => { const u = { ...prev }; const dp = [...(u[targetDate] || [])]; dp.push({ ...post, account: targetAccount, status: "Brouillon" }); u[targetDate] = dp; return u; });
+  };
+  const dayPosts = posts[dateKey] || [];
+
+  return (
+    <div style={{ background: "#FAFBFC", borderRadius: 12, border: "1px solid #E8E8E8", padding: 20, marginTop: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h3 style={{ fontFamily: F, fontSize: 16, fontWeight: 500, color: "#1A365D", margin: 0, letterSpacing: 1, textTransform: "uppercase" }}>
+          {dayName} {day} {MONTHS_FR[month]} {year}
+        </h3>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={addPost} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #1A365D", background: "#1A365D", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 500 }}>+ Ajouter</button>
+          <button onClick={onClose} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #D0D5DD", background: "#fff", color: "#666", cursor: "pointer", fontSize: 12, fontFamily: F }}>Fermer</button>
+        </div>
+      </div>
+      {dayPosts.length === 0 && <div style={{ padding: 30, textAlign: "center", color: "#CCC", fontSize: 13, fontStyle: "italic", fontFamily: F }}>Aucun post prévu — cliquez sur "+ Ajouter" pour en créer un</div>}
+      {dayPosts.map((post, idx) => (
+        <PostEditor key={idx} post={post} dateKey={dateKey} index={idx}
+          generating={generatingKey === idx}
+          onUpdate={(field, val) => { updatePost(idx, field, val); if (field === "account" && posts[dateKey]?.[idx]?.subject && val) setTimeout(() => handleGenerate(idx), 300); }}
+          onDelete={() => deletePost(idx)}
+          onGenerate={() => handleGenerate(idx)}
+          onDuplicate={(targetDate, targetAccount) => duplicatePost(idx, targetDate, targetAccount)} />
+      ))}
     </div>
   );
 }
@@ -1064,7 +1135,6 @@ export default function App() {
   // Keep openStatus as a derived alias for backwards compat (Récap, etc.)
   const openStatus = Object.fromEntries(ACCOUNTS.map(a => [a.id, accountSettings[a.id]?.isOpen !== false]));
   const [selectedDay, setSelectedDay] = useState(null);
-  const [selectedWeekIdx, setSelectedWeekIdx] = useState(null);
   const [view, setView] = useState("calendar");
   const [loaded, setLoaded] = useState(false);
   const skipSync = useRef(false);
@@ -1103,9 +1173,9 @@ export default function App() {
   const monthPrefix = `${year}-${String(month+1).padStart(2,"0")}`;
   const monthPosts = Object.fromEntries(Object.entries(posts).filter(([k]) => k.startsWith(monthPrefix)));
 
-  const prevMonth = () => { if (month === 0) { setYear(y => y-1); setMonth(11); } else setMonth(m => m-1); setSelectedDay(null); setSelectedWeekIdx(null); };
-  const nextMonth = () => { if (month === 11) { setYear(y => y+1); setMonth(0); } else setMonth(m => m+1); setSelectedDay(null); setSelectedWeekIdx(null); };
-  const handleDayClick = (day) => { setSelectedDay(day); setSelectedWeekIdx(weeks.findIndex(w => w.includes(day))); };
+  const prevMonth = () => { if (month === 0) { setYear(y => y-1); setMonth(11); } else setMonth(m => m-1); setSelectedDay(null); };
+  const nextMonth = () => { if (month === 11) { setYear(y => y+1); setMonth(0); } else setMonth(m => m+1); setSelectedDay(null); };
+  const handleDayClick = (day) => { setSelectedDay(prev => prev === day ? null : day); };
 
   // Auto-generate monthly planning
   const generatePlanning = () => {
@@ -1214,32 +1284,35 @@ export default function App() {
       {view === "calendar" && (<>
         <OpenClosedPanel accountSettings={accountSettings} setAccountSettings={setAccountSettings} month={month} onGenerate={generatePlanning} onClear={clearPlanning} />
         <Stats posts={monthPosts} />
-        <CalendarMonth year={year} month={month} posts={posts} onDayClick={handleDayClick} selectedDay={selectedDay} onDeletePost={(dateKey, index) => {
-          setPosts(prev => { const u = { ...prev }; const dp = [...(u[dateKey] || [])]; dp.splice(index, 1); if (dp.length === 0) delete u[dateKey]; else u[dateKey] = dp; return u; });
-        }} />
-        <div style={{ display: "flex", gap: 6, marginTop: 16, justifyContent: "center", flexWrap: "wrap" }}>
-          {(() => {
-            const dim = getDaysInMonth(year, month);
-            const fixedWeeks = [
-              { label: "S1", days: Array.from({length: 7}, (_, i) => i + 1).filter(d => d <= dim) },
-              { label: "S2", days: Array.from({length: 7}, (_, i) => i + 8).filter(d => d <= dim) },
-              { label: "S3", days: Array.from({length: 7}, (_, i) => i + 15).filter(d => d <= dim) },
-              { label: "S4", days: Array.from({length: dim - 21}, (_, i) => i + 22).filter(d => d <= dim) },
-            ];
-            return fixedWeeks.map((w, i) => (
-              <button key={i} onClick={() => { setSelectedWeekIdx(i); setSelectedDay(w.days[0]); }} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #D0D5DD", background: selectedWeekIdx === i ? "#1A365D" : "#fff", color: selectedWeekIdx === i ? "#fff" : "#666", cursor: "pointer", fontSize: 11, fontFamily: F, letterSpacing: 0.5, transition: "all .15s" }}>{w.label} : {w.days[0]}–{w.days[w.days.length-1]} {MONTHS_FR[month].slice(0,3)}</button>
-            ));
-          })()}
-        </div>
-        {selectedWeekIdx !== null && (() => {
-          const dim = getDaysInMonth(year, month);
-          const fixedWeeks = [
-            Array.from({length: 7}, (_, i) => i + 1).filter(d => d <= dim),
-            Array.from({length: 7}, (_, i) => i + 8).filter(d => d <= dim),
-            Array.from({length: 7}, (_, i) => i + 15).filter(d => d <= dim),
-            Array.from({length: dim - 21}, (_, i) => i + 22).filter(d => d <= dim),
-          ];
-          return <WeekView year={year} month={month} weekDays={fixedWeeks[selectedWeekIdx]} posts={posts} setPosts={setPosts} />;
+        <CalendarMonth year={year} month={month} posts={posts} onDayClick={handleDayClick} selectedDay={selectedDay}
+          onDeletePost={(dateKey, index) => {
+            setPosts(prev => { const u = { ...prev }; const dp = [...(u[dateKey] || [])]; dp.splice(index, 1); if (dp.length === 0) delete u[dateKey]; else u[dateKey] = dp; return u; });
+          }}
+          onDropPost={(fromDateKey, fromIndex, toDateKey) => {
+            setPosts(prev => {
+              const u = { ...prev };
+              const fromArr = [...(u[fromDateKey] || [])];
+              const [moved] = fromArr.splice(fromIndex, 1);
+              if (fromArr.length === 0) delete u[fromDateKey]; else u[fromDateKey] = fromArr;
+              const toArr = [...(u[toDateKey] || [])];
+              toArr.push(moved);
+              u[toDateKey] = toArr;
+              return u;
+            });
+          }}
+        />
+        {selectedDay && (() => {
+          const dateKey = fmtDate(year, month, selectedDay);
+          const dow = new Date(year, month, selectedDay).getDay();
+          const mb = dow === 0 ? 6 : dow - 1;
+          return (
+            <DayView
+              year={year} month={month} day={selectedDay} dateKey={dateKey}
+              dayName={DAYS_FULL[mb]}
+              posts={posts} setPosts={setPosts}
+              onClose={() => setSelectedDay(null)}
+            />
+          );
         })()}
       </>)}
 
