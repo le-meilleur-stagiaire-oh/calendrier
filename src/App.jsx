@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, orderBy, deleteDoc } from "firebase/firestore";
 
@@ -20,6 +20,9 @@ try {
 // Cloudinary config
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "";
 const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "";
+
+// Library context — shared across PostEditor instances
+const LibraryContext = createContext({ library: [], setLibrary: () => {} });
 
 const F = "system-ui, -apple-system, 'Helvetica Neue', Helvetica, sans-serif";
 
@@ -156,7 +159,7 @@ function OpenClosedPanel({ accountSettings, setAccountSettings, month, onGenerat
       <div style={{ fontSize: 11, fontWeight: 600, color: "#1A365D", letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 12 }}>
         Statut des établissements — {MONTHS_FR[month]}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
         {ACCOUNTS.map(a => {
           const s = accountSettings[a.id] || { isOpen: true, postsPerWeek: 3, closingDate: "", openingDate: "" };
           return (
@@ -438,8 +441,9 @@ function CalendarMonth({ year, month, posts, onDayClick, selectedDay, onDeletePo
                       "Publié": { letter: "", bg: "#4CAF50", color: "#fff", square: true },
                     };
                     const st = statusMap[p.status || "Brouillon"] || statusMap["Brouillon"];
-                    // First image from mediaItems
-                    const firstImage = (p.mediaItems || []).find(m => m.fileData && m.fileData.startsWith("data:image"));
+                    // First image from mediaItems (local upload or library URL)
+                    const firstImage = (p.mediaItems || []).find(m => (m.fileData && m.fileData.startsWith("data:image")) || (m.url && m.fileType?.startsWith("image/")));
+                    const thumbSrc = firstImage?.fileData || firstImage?.url;
                     return (
                       <div key={j}
                         draggable
@@ -447,8 +451,8 @@ function CalendarMonth({ year, month, posts, onDayClick, selectedDay, onDeletePo
                         onClick={e => e.stopPropagation()}
                         style={{ display: "flex", alignItems: "center", gap: 3, cursor: "grab", borderRadius: 4, padding: "1px 0" }}>
                         {/* Thumbnail */}
-                        {firstImage ? (
-                          <img src={firstImage.fileData} style={{ width: 18, height: 18, borderRadius: 3, objectFit: "cover", flexShrink: 0, border: `1px solid ${acc?.color || "#ddd"}44` }} />
+                        {thumbSrc ? (
+                          <img src={thumbSrc} style={{ width: 18, height: 18, borderRadius: 3, objectFit: "cover", flexShrink: 0, border: `1px solid ${acc?.color || "#ddd"}44` }} />
                         ) : (
                           <div style={{ width: 18, height: 18, borderRadius: 3, background: acc?.color ? `${acc.color}22` : "#F0F0F0", flexShrink: 0, border: `1px solid ${acc?.color || "#ddd"}33` }} />
                         )}
@@ -493,6 +497,7 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
   const [showDup, setShowDup] = useState(false);
   const [dupDate, setDupDate] = useState("");
   const [dupAccount, setDupAccount] = useState("");
+  const [showLibrary, setShowLibrary] = useState(false);
 
   // Suggested time
   const dow = new Date(dateKey).getDay();
@@ -597,6 +602,9 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
                 {item.fileData && item.fileData.startsWith("data:image") && (
                   <img src={item.fileData} style={{ marginTop: 6, maxWidth: 120, maxHeight: 80, borderRadius: 4, objectFit: "cover", border: "1px solid #E8E8E8" }} />
                 )}
+                {item.url && item.fileType?.startsWith("image/") && !item.fileData && (
+                  <img src={item.url} style={{ marginTop: 6, maxWidth: 120, maxHeight: 80, borderRadius: 4, objectFit: "cover", border: "1px solid #E8E8E8" }} />
+                )}
                 {item.fileData && item.fileData.startsWith("data:video") && (
                   <div style={{ marginTop: 6, fontSize: 10, color: "#4A9FCC", fontFamily: F }}>Vidéo : {item.fileName || "uploadée"}</div>
                 )}
@@ -611,13 +619,19 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
                 </div>
               </div>
           ))}
-          <button onClick={() => {
-            const items = [...(post.mediaItems || [])];
-            items.push({ name: "", fileData: null, fileName: "", driveUrl: "" });
-            onUpdate("mediaItems", items);
-          }} style={{ padding: "6px 12px", borderRadius: 6, border: "1px dashed #D0D5DD", background: "#FAFBFC", cursor: "pointer", fontSize: 11, color: "#999", fontFamily: F, display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
-            + Ajouter un média
-          </button>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => {
+              const items = [...(post.mediaItems || [])];
+              items.push({ name: "", fileData: null, fileName: "", driveUrl: "" });
+              onUpdate("mediaItems", items);
+            }} style={{ flex: 1, padding: "6px 12px", borderRadius: 6, border: "1px dashed #D0D5DD", background: "#FAFBFC", cursor: "pointer", fontSize: 11, color: "#999", fontFamily: F, display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+              + Uploader un média
+            </button>
+            <button onClick={() => setShowLibrary(true)}
+              style={{ flex: 1, padding: "6px 12px", borderRadius: 6, border: "1px dashed #1A365D", background: "#F0F4FA", cursor: "pointer", fontSize: 11, color: "#1A365D", fontFamily: F, display: "flex", alignItems: "center", gap: 6, justifyContent: "center", fontWeight: 500 }}>
+              📁 Choisir depuis la librairie
+            </button>
+          </div>
           {(post.mediaItems || []).length > 0 && (
             <div style={{ fontSize: 10, color: "#999", fontFamily: F }}>
               {(post.mediaItems || []).length} média{(post.mediaItems || []).length > 1 ? "s" : ""}
@@ -625,6 +639,16 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
           )}
         </div>
       </div>
+      {showLibrary && (
+        <LibraryPicker
+          onClose={() => setShowLibrary(false)}
+          onSelect={item => {
+            const items = [...(post.mediaItems || [])];
+            items.push({ name: item.name, url: item.url, fileType: item.fileType, fileName: item.name, fileData: null, driveUrl: "" });
+            onUpdate("mediaItems", items);
+          }}
+        />
+      )}
       {generating && <div style={{ padding: 12, textAlign: "center", color: "#4A7FB5", fontSize: 12, fontStyle: "italic", fontFamily: F }}>Génération de la caption en cours...</div>}
       {post.caption && (
         <div style={{ marginBottom: 10 }}>
@@ -788,251 +812,154 @@ function HashtagBank() {
   );
 }
 
-function FeedPreview() {
-  const [uploads, setUploads] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [caption, setCaption] = useState("");
-  const [filterDate, setFilterDate] = useState("");
-  const [lightbox, setLightbox] = useState(null); // { url, caption, date }
-  const fileInputRef = useRef(null);
+function FeedPreview({ posts }) {
+  const [selectedAccount, setSelectedAccount] = useState("APG");
 
-  // Load images from Firestore
-  const loadUploads = async () => {
-    if (!db) { setLoading(false); return; }
-    try {
-      const q = query(collection(db, "gallery"), orderBy("uploadedAt", "desc"));
-      const snapshot = await getDocs(q);
-      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      setUploads(docs);
-    } catch (e) {
-      console.error("Erreur chargement galerie", e);
-    }
-    setLoading(false);
+  // Collect all posts for this account, sorted by date descending (most recent first)
+  const allPosts = Object.entries(posts)
+    .flatMap(([dateKey, dayPosts]) =>
+      dayPosts
+        .filter(p => p.account === selectedAccount)
+        .map(p => ({ ...p, dateKey }))
+    )
+    .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+
+  const acc = ACCOUNTS.find(a => a.id === selectedAccount);
+
+  // Build rows of 3, left = most recent
+  const rows = [];
+  for (let i = 0; i < allPosts.length; i += 3) rows.push(allPosts.slice(i, i + 3));
+
+  const [lightbox, setLightbox] = useState(null);
+
+  const getThumb = (p) => {
+    const img = (p.mediaItems || []).find(m =>
+      (m.fileData && m.fileData.startsWith("data:image")) ||
+      (m.url && (m.fileType?.startsWith("image/") || m.url.match(/\.(jpg|jpeg|png|webp|gif)/i)))
+    );
+    return img?.fileData || img?.url || null;
   };
 
-  useEffect(() => { loadUploads(); }, []);
-
-  const handleUpload = async (files) => {
-    if (!files || files.length === 0) return;
-    if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) { alert("Cloudinary non configuré"); return; }
-    if (!db) { alert("Firebase non configuré"); return; }
-
-    setUploading(true);
-    setUploadProgress(0);
-
-    try {
-      const total = files.length;
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-        formData.append("folder", "oh_gallery");
-
-        const xhr = new XMLHttpRequest();
-        await new Promise((resolve, reject) => {
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              setUploadProgress(Math.round(((i + e.loaded / e.total) / total) * 100));
-            }
-          };
-          xhr.onload = async () => {
-            if (xhr.status === 200) {
-              const result = JSON.parse(xhr.responseText);
-              await addDoc(collection(db, "gallery"), {
-                url: result.secure_url,
-                publicId: result.public_id,
-                fileName: file.name,
-                caption: caption.trim(),
-                date: selectedDate,
-                uploadedAt: new Date().toISOString(),
-                fileType: file.type,
-              });
-              resolve();
-            } else {
-              reject(new Error("Upload échoué"));
-            }
-          };
-          xhr.onerror = reject;
-          xhr.open("POST", `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`);
-          xhr.send(formData);
-        });
-      }
-      setCaption("");
-      await loadUploads();
-    } catch (e) {
-      console.error("Erreur upload", e);
-      alert("Erreur lors de l'upload. Vérifiez votre configuration Cloudinary.");
-    }
-    setUploading(false);
-    setUploadProgress(0);
-  };
-
-  const handleDelete = async (item) => {
-    if (!window.confirm("Supprimer cette image ?")) return;
-    try {
-      await deleteDoc(doc(db, "gallery", item.id));
-      setUploads(prev => prev.filter(u => u.id !== item.id));
-    } catch (e) {
-      console.error("Erreur suppression", e);
-    }
-  };
-
-  // Group uploads by date
-  const grouped = {};
-  const filtered = filterDate ? uploads.filter(u => u.date === filterDate) : uploads;
-  filtered.forEach(u => {
-    if (!grouped[u.date]) grouped[u.date] = [];
-    grouped[u.date].push(u);
-  });
-  const sortedDates = Object.keys(grouped).sort().reverse();
-
-  const isImage = (type) => type && type.startsWith("image/");
+  const typeColors = { Photo: "#B8860B", Carrousel: "#2E7D6F", Reel: "#8B3A62" };
+  const statusColors = { Brouillon: "#F5C542", "En cours": "#7BC67E", Validé: "#1B5E20", Programmé: "#E67E22", Publié: "#4CAF50" };
 
   return (
     <div style={{ marginTop: 16 }}>
-      {/* Upload Panel */}
-      <div style={{ ...cardStyle, padding: 20, marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "#1A365D", letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 16 }}>
-          Ajouter des images
+      {/* Account selector */}
+      <div style={{ ...cardStyle, padding: 16, marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#1A365D", letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 12 }}>
+          Preview du feed Instagram
         </div>
-
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-          <div style={{ flex: "0 0 auto" }}>
-            <label style={labelStyle}>Date</label>
-            <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-              style={{ ...inputStyle, width: "auto", padding: "6px 10px", fontSize: 13 }} />
-          </div>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <label style={labelStyle}>Légende (optionnelle)</label>
-            <input value={caption} onChange={e => setCaption(e.target.value)}
-              placeholder="Ex: Shooting terrasse, coucher de soleil..." style={inputStyle} />
-          </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {ACCOUNTS.map(a => (
+            <button key={a.id} onClick={() => setSelectedAccount(a.id)}
+              style={{ padding: "6px 18px", borderRadius: 20, border: `2px solid ${a.color}`, background: selectedAccount === a.id ? a.color : "#fff", color: selectedAccount === a.id ? "#fff" : a.color, cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 700, transition: "all .15s" }}>
+              {a.id}
+            </button>
+          ))}
         </div>
-
-        <div
-          onClick={() => !uploading && fileInputRef.current?.click()}
-          onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = "#1A365D"; e.currentTarget.style.background = "#F0F4FA"; }}
-          onDragLeave={e => { e.currentTarget.style.borderColor = "#D0D5DD"; e.currentTarget.style.background = "#FAFBFC"; }}
-          onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = "#D0D5DD"; e.currentTarget.style.background = "#FAFBFC"; handleUpload(Array.from(e.dataTransfer.files)); }}
-          style={{ border: "2px dashed #D0D5DD", borderRadius: 10, padding: "28px 20px", textAlign: "center", cursor: uploading ? "default" : "pointer", background: "#FAFBFC", transition: "all .2s" }}>
-          {uploading ? (
-            <div>
-              <div style={{ fontSize: 13, color: "#1A365D", fontFamily: F, marginBottom: 8 }}>Upload en cours... {uploadProgress}%</div>
-              <div style={{ height: 6, borderRadius: 3, background: "#E8E8E8", overflow: "hidden", maxWidth: 300, margin: "0 auto" }}>
-                <div style={{ height: "100%", width: `${uploadProgress}%`, background: "#1A365D", borderRadius: 3, transition: "width .3s" }} />
-              </div>
-            </div>
-          ) : (
-            <>
-              <div style={{ fontSize: 28, marginBottom: 6 }}>📸</div>
-              <div style={{ fontSize: 13, color: "#1A365D", fontFamily: F, fontWeight: 500 }}>Cliquer ou glisser-déposer des images</div>
-              <div style={{ fontSize: 11, color: "#999", fontFamily: F, marginTop: 4 }}>JPG, PNG, WEBP, GIF, MP4 — plusieurs fichiers acceptés</div>
-            </>
-          )}
-        </div>
-        <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple style={{ display: "none" }}
-          onChange={e => { handleUpload(Array.from(e.target.files)); e.target.value = ""; }} />
       </div>
 
-      {/* Gallery */}
-      <div style={{ ...cardStyle, padding: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#1A365D", letterSpacing: 1, textTransform: "uppercase", fontFamily: F }}>
-            Galerie — {uploads.length} image{uploads.length !== 1 ? "s" : ""}
+      {/* Instagram mock */}
+      <div style={{ ...cardStyle, overflow: "hidden" }}>
+        {/* Profile header */}
+        <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid #E8E8E8", display: "flex", alignItems: "center", gap: 20 }}>
+          <div style={{ width: 60, height: 60, borderRadius: "50%", background: `linear-gradient(135deg, ${acc?.color}, ${acc?.color}88)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: "3px solid #E8E8E8" }}>
+            <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", fontFamily: F }}>{selectedAccount[0]}</span>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <label style={{ ...labelStyle, margin: 0, display: "inline" }}>Filtrer par date :</label>
-            <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
-              style={{ ...inputStyle, width: "auto", padding: "4px 8px", fontSize: 12 }} />
-            {filterDate && <button onClick={() => setFilterDate("")} style={{ fontSize: 11, color: "#999", background: "none", border: "none", cursor: "pointer", fontFamily: F }}>✕ Tout voir</button>}
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: "#1A1A1A", fontFamily: F }}>{acc?.name}</div>
+            <div style={{ fontSize: 12, color: "#999", fontFamily: F, marginTop: 2 }}>{allPosts.length} post{allPosts.length !== 1 ? "s" : ""} planifié{allPosts.length !== 1 ? "s" : ""}</div>
           </div>
         </div>
 
-        {loading && <div style={{ textAlign: "center", color: "#CCC", padding: 40, fontSize: 13, fontFamily: F }}>Chargement...</div>}
-
-        {!loading && sortedDates.length === 0 && (
-          <div style={{ textAlign: "center", color: "#CCC", padding: 40 }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🖼️</div>
-            <div style={{ fontSize: 13, fontFamily: F }}>Aucune image pour le moment</div>
-            <div style={{ fontSize: 11, fontFamily: F, marginTop: 4 }}>Uploadez vos premières images ci-dessus</div>
+        {/* Feed grid */}
+        {allPosts.length === 0 ? (
+          <div style={{ padding: 60, textAlign: "center" }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>📷</div>
+            <div style={{ fontSize: 14, color: "#999", fontFamily: F }}>Aucun post planifié pour {selectedAccount}</div>
+            <div style={{ fontSize: 12, color: "#CCC", fontFamily: F, marginTop: 4 }}>Créez des posts dans le calendrier pour les voir ici</div>
           </div>
-        )}
-
-        {sortedDates.map(date => (
-          <div key={date} style={{ marginBottom: 24 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#1A365D", fontFamily: F }}>
-                {(() => {
-                  const [y, m, d] = date.split("-");
-                  const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
-                  const dow = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"][dateObj.getDay()];
-                  return `${dow} ${parseInt(d)} ${MONTHS_FR[Number(m)-1]} ${y}`;
-                })()}
-              </div>
-              <div style={{ flex: 1, height: 1, background: "#E8E8E8" }} />
-              <div style={{ fontSize: 11, color: "#999", fontFamily: F }}>{grouped[date].length} fichier{grouped[date].length > 1 ? "s" : ""}</div>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
-              {grouped[date].map(item => (
-                <div key={item.id} style={{ borderRadius: 8, overflow: "hidden", border: "1px solid #E8E8E8", background: "#FAFAFA", position: "relative", group: true }}>
-                  {isImage(item.fileType) ? (
-                    <img src={item.url} alt={item.caption || item.fileName}
-                      onClick={() => setLightbox(item)}
-                      style={{ width: "100%", aspectRatio: "1", objectFit: "cover", cursor: "pointer", display: "block", transition: "opacity .2s" }}
-                      onMouseEnter={e => e.target.style.opacity = ".85"}
-                      onMouseLeave={e => e.target.style.opacity = "1"} />
-                  ) : (
-                    <div onClick={() => setLightbox(item)} style={{ width: "100%", aspectRatio: "1", background: "#1A365D15", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                      <div style={{ textAlign: "center" }}>
-                        <div style={{ fontSize: 28 }}>🎬</div>
-                        <div style={{ fontSize: 10, color: "#666", fontFamily: F, marginTop: 4 }}>{item.fileName}</div>
+        ) : (
+          <div>
+            {rows.map((row, ri) => (
+              <div key={ri} style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 3 }}>
+                {row.map((p, ci) => {
+                  const thumb = getThumb(p);
+                  return (
+                    <div key={ci} onClick={() => setLightbox(p)}
+                      style={{ aspectRatio: "1", position: "relative", cursor: "pointer", background: acc ? `${acc.color}18` : "#F5F5F5", overflow: "hidden" }}
+                      onMouseEnter={e => e.currentTarget.querySelector(".overlay").style.opacity = "1"}
+                      onMouseLeave={e => e.currentTarget.querySelector(".overlay").style.opacity = "0"}>
+                      {thumb ? (
+                        <img src={thumb} alt={p.subject || ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                      ) : (
+                        <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 8 }}>
+                          <div style={{ fontSize: 22, marginBottom: 4 }}>📷</div>
+                          <div style={{ fontSize: 9, color: acc?.color, fontFamily: F, textAlign: "center", fontWeight: 500, lineHeight: 1.3 }}>{p.subject || "Sans sujet"}</div>
+                        </div>
+                      )}
+                      {/* Type badge top-right */}
+                      <div style={{ position: "absolute", top: 4, right: 4 }}>
+                        {p.type === "Carrousel" && <span style={{ background: "rgba(0,0,0,.55)", borderRadius: 3, padding: "1px 4px", fontSize: 9, color: "#fff", fontFamily: F }}>❏</span>}
+                        {p.type === "Reel" && <span style={{ background: "rgba(0,0,0,.55)", borderRadius: 3, padding: "1px 4px", fontSize: 9, color: "#fff", fontFamily: F }}>▶</span>}
+                      </div>
+                      {/* Hover overlay */}
+                      <div className="overlay" style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.45)", opacity: 0, transition: "opacity .2s", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 8 }}>
+                        <div style={{ fontSize: 11, color: "#fff", fontFamily: F, fontWeight: 600, textAlign: "center", lineHeight: 1.3, marginBottom: 4 }}>{p.subject || "Sans sujet"}</div>
+                        <div style={{ fontSize: 10, color: "#ddd", fontFamily: F }}>{fmtDateFR(p.dateKey)}</div>
+                        <div style={{ marginTop: 4, width: 8, height: 8, borderRadius: "50%", background: statusColors[p.status || "Brouillon"] }} title={p.status || "Brouillon"} />
                       </div>
                     </div>
-                  )}
-                  {item.caption && (
-                    <div style={{ padding: "6px 8px", fontSize: 11, color: "#555", fontFamily: F, lineHeight: 1.4, borderTop: "1px solid #E8E8E8", background: "#fff" }}>
-                      {item.caption}
-                    </div>
-                  )}
-                  <button onClick={() => handleDelete(item)}
-                    style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.5)", color: "#fff", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+                {/* Fill empty cells in last row */}
+                {row.length < 3 && Array.from({ length: 3 - row.length }).map((_, i) => (
+                  <div key={`e-${i}`} style={{ aspectRatio: "1", background: "#F8F8F8" }} />
+                ))}
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
 
-      {/* Lightbox */}
+      {/* Lightbox — post detail */}
       {lightbox && (
-        <div onClick={() => setLightbox(null)}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div onClick={e => e.stopPropagation()} style={{ maxWidth: "90vw", maxHeight: "90vh", position: "relative" }}>
-            {isImage(lightbox.fileType) ? (
-              <img src={lightbox.url} alt={lightbox.caption || ""} style={{ maxWidth: "85vw", maxHeight: "80vh", objectFit: "contain", borderRadius: 8, display: "block" }} />
-            ) : (
-              <video src={lightbox.url} controls style={{ maxWidth: "85vw", maxHeight: "80vh", borderRadius: 8 }} />
-            )}
-            {lightbox.caption && (
-              <div style={{ marginTop: 10, textAlign: "center", color: "#fff", fontFamily: F, fontSize: 13 }}>{lightbox.caption}</div>
-            )}
-            <div style={{ marginTop: 4, textAlign: "center", color: "#999", fontFamily: F, fontSize: 11 }}>
-              {(() => {
-                const [y, m, d] = lightbox.date.split("-");
-                return `${parseInt(d)} ${MONTHS_FR[Number(m)-1]} ${y}`;
-              })()}
+        <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 12, overflow: "hidden", display: "flex", maxWidth: "min(860px, 95vw)", width: "100%", maxHeight: "85vh" }}>
+            {/* Image side */}
+            <div style={{ flex: "0 0 55%", background: "#000", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {getThumb(lightbox) ? (
+                <img src={getThumb(lightbox)} style={{ maxWidth: "100%", maxHeight: "85vh", objectFit: "contain" }} />
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#666", padding: 40 }}>
+                  <div style={{ fontSize: 48, marginBottom: 12 }}>📷</div>
+                  <div style={{ fontSize: 13, textAlign: "center" }}>Pas d'image</div>
+                </div>
+              )}
             </div>
-            <button onClick={() => setLightbox(null)}
-              style={{ position: "absolute", top: -14, right: -14, width: 30, height: 30, borderRadius: "50%", border: "none", background: "#fff", color: "#333", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              ×
-            </button>
+            {/* Info side */}
+            <div style={{ flex: 1, padding: 20, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: acc?.color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: F }}>{lightbox.account}</span>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13, fontFamily: F, color: "#1A1A1A" }}>{acc?.name}</div>
+                  <div style={{ fontSize: 11, color: "#999", fontFamily: F }}>{fmtDateFR(lightbox.dateKey)}</div>
+                </div>
+                <button onClick={() => setLightbox(null)} style={{ marginLeft: "auto", background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#999" }}>×</button>
+              </div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+                <span style={{ padding: "2px 8px", borderRadius: 4, background: typeColors[lightbox.type] + "22", color: typeColors[lightbox.type], fontSize: 10, fontFamily: F, fontWeight: 600 }}>{lightbox.type}</span>
+                <span style={{ padding: "2px 8px", borderRadius: 4, background: statusColors[lightbox.status || "Brouillon"] + "22", color: statusColors[lightbox.status || "Brouillon"], fontSize: 10, fontFamily: F, fontWeight: 600 }}>{lightbox.status || "Brouillon"}</span>
+              </div>
+              {lightbox.subject && <div style={{ fontWeight: 600, fontSize: 13, color: "#1A1A1A", fontFamily: F, marginBottom: 8 }}>{lightbox.subject}</div>}
+              {lightbox.caption && (
+                <div style={{ fontSize: 12, color: "#333", fontFamily: F, lineHeight: 1.6, whiteSpace: "pre-wrap", flex: 1 }}>{lightbox.caption}</div>
+              )}
+              {!lightbox.caption && <div style={{ fontSize: 12, color: "#CCC", fontFamily: F, fontStyle: "italic" }}>Pas de caption</div>}
+            </div>
           </div>
         </div>
       )}
@@ -1107,6 +1034,161 @@ function Archive({ posts }) {
   );
 }
 
+// ── Library (full page) ──────────────────────────────────────────────────────
+function Library({ library, setLibrary }) {
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [search, setSearch] = useState("");
+  const [lightbox, setLightbox] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleUpload = async (files) => {
+    if (!files || files.length === 0) return;
+    if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) { alert("Cloudinary non configuré"); return; }
+    setUploading(true); setProgress(0);
+    const total = files.length;
+    const added = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+      fd.append("folder", "oh_library");
+      const xhr = new XMLHttpRequest();
+      await new Promise((res, rej) => {
+        xhr.upload.onprogress = e => { if (e.lengthComputable) setProgress(Math.round(((i + e.loaded / e.total) / total) * 100)); };
+        xhr.onload = async () => {
+          if (xhr.status === 200) {
+            const r = JSON.parse(xhr.responseText);
+            const entry = { url: r.secure_url, publicId: r.public_id, name: file.name, fileType: file.type, uploadedAt: new Date().toISOString() };
+            if (db) { const ref = await addDoc(collection(db, "library"), entry); added.push({ id: ref.id, ...entry }); }
+            else added.push({ id: Date.now() + i, ...entry });
+            res();
+          } else rej();
+        };
+        xhr.onerror = rej;
+        xhr.open("POST", `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`);
+        xhr.send(fd);
+      });
+    }
+    setLibrary(prev => [...added, ...prev]);
+    setUploading(false); setProgress(0);
+  };
+
+  const handleDelete = async (item) => {
+    if (!window.confirm("Supprimer de la librairie ?")) return;
+    if (db) { try { await deleteDoc(doc(db, "library", item.id)); } catch {} }
+    setLibrary(prev => prev.filter(x => x.id !== item.id));
+  };
+
+  const filtered = library.filter(x => (x.name || "").toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div style={{ ...cardStyle, padding: 20, marginTop: 16 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: "#1A365D", letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 16 }}>
+        Librairie — {library.length} fichier{library.length !== 1 ? "s" : ""}
+      </div>
+
+      {/* Upload zone */}
+      <div
+        onClick={() => !uploading && fileInputRef.current?.click()}
+        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = "#1A365D"; }}
+        onDragLeave={e => { e.currentTarget.style.borderColor = "#D0D5DD"; }}
+        onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = "#D0D5DD"; handleUpload(Array.from(e.dataTransfer.files)); }}
+        style={{ border: "2px dashed #D0D5DD", borderRadius: 10, padding: "22px 20px", textAlign: "center", cursor: uploading ? "default" : "pointer", background: "#FAFBFC", marginBottom: 16, transition: "all .2s" }}>
+        {uploading ? (
+          <div>
+            <div style={{ fontSize: 13, color: "#1A365D", fontFamily: F, marginBottom: 8 }}>Upload en cours... {progress}%</div>
+            <div style={{ height: 6, borderRadius: 3, background: "#E8E8E8", overflow: "hidden", maxWidth: 300, margin: "0 auto" }}>
+              <div style={{ height: "100%", width: `${progress}%`, background: "#1A365D", borderRadius: 3, transition: "width .3s" }} />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize: 24, marginBottom: 4 }}>📁</div>
+            <div style={{ fontSize: 13, color: "#1A365D", fontFamily: F, fontWeight: 500 }}>Cliquer ou glisser-déposer des images</div>
+            <div style={{ fontSize: 11, color: "#999", fontFamily: F, marginTop: 2 }}>JPG, PNG, WEBP, GIF, MP4 — plusieurs fichiers acceptés</div>
+          </>
+        )}
+      </div>
+      <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple style={{ display: "none" }}
+        onChange={e => { handleUpload(Array.from(e.target.files)); e.target.value = ""; }} />
+
+      {/* Search */}
+      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher par nom..." style={{ ...inputStyle, marginBottom: 16 }} />
+
+      {/* Grid */}
+      {filtered.length === 0 && <div style={{ textAlign: "center", color: "#CCC", padding: 40, fontSize: 13, fontFamily: F }}>Aucune image dans la librairie</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+        {filtered.map(item => (
+          <div key={item.id} style={{ borderRadius: 8, overflow: "hidden", border: "1px solid #E8E8E8", background: "#FAFAFA", position: "relative" }}>
+            {item.fileType?.startsWith("image/") ? (
+              <img src={item.url} alt={item.name} onClick={() => setLightbox(item)}
+                style={{ width: "100%", aspectRatio: "1", objectFit: "cover", cursor: "pointer", display: "block" }} />
+            ) : (
+              <div style={{ width: "100%", aspectRatio: "1", background: "#1A365D10", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} onClick={() => setLightbox(item)}>
+                <span style={{ fontSize: 28 }}>🎬</span>
+              </div>
+            )}
+            <div style={{ padding: "4px 6px", fontSize: 10, color: "#888", fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", background: "#fff" }}>{item.name}</div>
+            <button onClick={() => handleDelete(item)}
+              style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.5)", color: "#fff", cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+          </div>
+        ))}
+      </div>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "relative", maxWidth: "90vw" }}>
+            <img src={lightbox.url} style={{ maxWidth: "85vw", maxHeight: "80vh", objectFit: "contain", borderRadius: 8, display: "block" }} />
+            <div style={{ marginTop: 8, textAlign: "center", color: "#fff", fontSize: 12, fontFamily: F }}>{lightbox.name}</div>
+            <button onClick={() => setLightbox(null)} style={{ position: "absolute", top: -14, right: -14, width: 28, height: 28, borderRadius: "50%", border: "none", background: "#fff", color: "#333", cursor: "pointer", fontSize: 15, fontWeight: 700 }}>×</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── LibraryPicker (modal inside PostEditor) ──────────────────────────────────
+function LibraryPicker({ onSelect, onClose }) {
+  const { library } = useContext(LibraryContext);
+  const [search, setSearch] = useState("");
+  const filtered = library.filter(x => (x.name || "").toLowerCase().includes(search.toLowerCase()));
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 12, padding: 20, width: "min(600px, 95vw)", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#1A365D", fontFamily: F }}>Choisir depuis la librairie</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#999" }}>×</button>
+        </div>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher..." style={{ ...inputStyle, marginBottom: 12 }} />
+        <div style={{ overflowY: "auto", flex: 1 }}>
+          {filtered.length === 0 && <div style={{ textAlign: "center", color: "#CCC", padding: 30, fontSize: 13, fontFamily: F }}>Aucun fichier dans la librairie</div>}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
+            {filtered.map(item => (
+              <div key={item.id} onClick={() => { onSelect(item); onClose(); }}
+                style={{ borderRadius: 8, overflow: "hidden", border: "1px solid #E8E8E8", cursor: "pointer", background: "#FAFAFA", transition: "border-color .15s" }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = "#1A365D"}
+                onMouseLeave={e => e.currentTarget.style.borderColor = "#E8E8E8"}>
+                {item.fileType?.startsWith("image/") ? (
+                  <img src={item.url} alt={item.name} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
+                ) : (
+                  <div style={{ width: "100%", aspectRatio: "1", background: "#1A365D10", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontSize: 24 }}>🎬</span>
+                  </div>
+                )}
+                <div style={{ padding: "3px 5px", fontSize: 9, color: "#888", fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Stats({ posts }) {
   const all = Object.values(posts).flat();
   const byAcc = {}; ACCOUNTS.forEach(a => { byAcc[a.id] = 0; }); all.forEach(p => { if (p.account && byAcc[p.account] !== undefined) byAcc[p.account]++; });
@@ -1136,10 +1218,21 @@ export default function App() {
   const openStatus = Object.fromEntries(ACCOUNTS.map(a => [a.id, accountSettings[a.id]?.isOpen !== false]));
   const [selectedDay, setSelectedDay] = useState(null);
   const [view, setView] = useState("calendar");
-  const [loaded, setLoaded] = useState(false);
+  const [library, setLibrary] = useState([]); // [{ id, url, name, uploadedAt }]
   const skipSync = useRef(false);
 
-  // Load from Firestore (or localStorage fallback)
+  // Load library images from Firestore
+  useEffect(() => {
+    if (!db) return;
+    const loadLib = async () => {
+      try {
+        const q = query(collection(db, "library"), orderBy("uploadedAt", "desc"));
+        const snap = await getDocs(q);
+        setLibrary(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (e) { console.error("Library load error", e); }
+    };
+    loadLib();
+  }, []);
   useEffect(() => {
     if (db) {
       const load = async () => {
@@ -1258,9 +1351,10 @@ export default function App() {
     setPosts(newPosts);
   };
 
-  const tabs = [{ id: "calendar", label: "Calendrier" }, { id: "preview", label: "Preview" }, { id: "recap", label: "Récap" }, { id: "hashtags", label: "Hashtags" }, { id: "archive", label: "Archive" }];
+  const tabs = [{ id: "calendar", label: "Calendrier" }, { id: "preview", label: "Preview" }, { id: "recap", label: "Récap" }, { id: "hashtags", label: "Hashtags" }, { id: "archive", label: "Archive" }, { id: "library", label: "Librairie" }];
 
   return (
+    <LibraryContext.Provider value={{ library, setLibrary }}>
     <div style={{ fontFamily: F, background: "#F5F6F8", minHeight: "100vh", padding: "20px 16px" }}>
       <div style={{ textAlign: "center", marginBottom: 20 }}>
         <h1 style={{ fontSize: 28, fontWeight: 300, color: "#1A365D", margin: "4px 0 0", letterSpacing: 1 }}>Calendrier Éditorial</h1>
@@ -1322,11 +1416,14 @@ export default function App() {
         <div style={{ marginTop: 16, textAlign: "center" }}><ExportButton year={year} month={month} posts={posts} /></div>
       </>)}
 
-      {view === "preview" && <FeedPreview />}
+      {view === "preview" && <FeedPreview posts={posts} />}
 
       {view === "hashtags" && <HashtagBank />}
 
       {view === "archive" && <Archive posts={posts} />}
+
+      {view === "library" && <Library library={library} setLibrary={setLibrary} />}
     </div>
+    </LibraryContext.Provider>
   );
 }
