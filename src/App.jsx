@@ -156,6 +156,7 @@ const C = {
   orange: "#FF9500",
   indigo: "#5856D6",
   teal: "#5AC8FA",
+  orange: "#FF9500",
 };
 
 async function analyzeImageAndGenerate(imageUrl, imageBase64, account, credits) {
@@ -377,110 +378,215 @@ function MonthlyRecap({ year, month, posts, openStatus }) {
 
 function ExportButton({ year, month, posts }) {
   const [exporting, setExporting] = useState(false);
+  const [showReadyView, setShowReadyView] = useState(false);
+  const [filterAcc, setFilterAcc] = useState("all");
+  const [copiedKey, setCopiedKey] = useState(null);
 
-  const handleExport = async () => {
-    const prefix = `${year}-${String(month+1).padStart(2,"0")}`;
-    const entries = Object.entries(posts).filter(([k]) => k.startsWith(prefix)).sort(([a], [b]) => a.localeCompare(b));
-    if (entries.length === 0) return;
+  const prefix = `${year}-${String(month+1).padStart(2,"0")}`;
 
+  // Flatten all posts for the month sorted by date
+  const allPosts = Object.entries(posts)
+    .filter(([k]) => k.startsWith(prefix))
+    .sort(([a], [b]) => a.localeCompare(b))
+    .flatMap(([dateKey, dayPosts]) =>
+      dayPosts.map((p, idx) => {
+        const dow = new Date(dateKey).getDay();
+        const isWe = dow === 0 || dow === 6;
+        const time = p.account && BEST_TIMES[p.account] ? (isWe ? BEST_TIMES[p.account].weekend : BEST_TIMES[p.account].weekday) : "";
+        const firstImage = (p.mediaItems || []).find(m =>
+          (m.fileData && m.fileData.startsWith("data:image")) ||
+          (m.url && (m.fileType?.startsWith("image/") || m.url.match(/\.(jpg|jpeg|png|webp|gif)/i)))
+        );
+        return { ...p, dateKey, time, idx, thumbSrc: firstImage?.fileData || firstImage?.url || null, imageUrl: firstImage?.url || null };
+      })
+    );
+
+  const filtered = filterAcc === "all" ? allPosts : allPosts.filter(p => p.account === filterAcc);
+
+  // ── CSV Export ──────────────────────────────────────────────────────────────
+  const handleCSVExport = () => {
+    if (allPosts.length === 0) return;
     setExporting(true);
 
-    try {
-      // Build per-account data
-      const accountData = {};
-      ACCOUNTS.forEach(a => { accountData[a.id] = []; });
+    // One CSV per account
+    ACCOUNTS.forEach(acc => {
+      const accPosts = allPosts.filter(p => p.account === acc.id);
+      if (accPosts.length === 0) return;
 
-      for (const [dateKey, dayPosts] of entries) {
-        for (const p of dayPosts) {
-          if (!p.account || !accountData[p.account]) continue;
-          const dow = new Date(dateKey).getDay();
-          const isWe = dow === 0 || dow === 6;
-          const time = p.account && BEST_TIMES[p.account] ? (isWe ? BEST_TIMES[p.account].weekend : BEST_TIMES[p.account].weekday) : "";
-          accountData[p.account].push({ ...p, dateKey, time });
-        }
-      }
+      const rows = [
+        ["Date", "Heure", "Type", "Statut", "Sujet", "Caption", "Image URL", "Crédits"],
+        ...accPosts.map(p => [
+          p.dateKey,
+          p.time,
+          p.type || "",
+          p.status || "Brouillon",
+          p.subject || "",
+          `"${(p.caption || "").replace(/"/g, '""')}"`,
+          p.imageUrl || "",
+          p.credits || "",
+        ])
+      ];
 
-      // Generate a text file per account + collect media files
-      const files = [];
-
-      for (const acc of ACCOUNTS) {
-        const accPosts = accountData[acc.id];
-        if (accPosts.length === 0) continue;
-
-        let text = `${acc.name.toUpperCase()} (${acc.id})\nCALENDRIER — ${MONTHS_FR[month].toUpperCase()} ${year}\n${"=".repeat(50)}\n\n`;
-
-        for (const p of accPosts) {
-          text += `--- ${fmtDateFR(p.dateKey)} | ${p.type || "?"} | Heure: ${p.time} ---\n`;
-          text += `Sujet: ${p.subject || ""}\n`;
-          if (p.credits) text += `Crédits: ${p.credits}\n`;
-          const medias = p.mediaItems || [];
-          if (medias.length > 0) {
-            text += `Médias (${medias.length}):\n`;
-            medias.forEach((m, i) => {
-              text += `  ${i+1}. ${m.name || m.fileName || "Sans nom"}${m.fileData ? " (fichier inclus)" : ""}\n`;
-              if (m.driveUrl) text += `     Google Drive: ${m.driveUrl.trim()}\n`;
-            });
-          }
-          text += `\n${p.caption || "(pas de caption)"}\n\n${"=".repeat(50)}\n\n`;
-
-          // Collect media files for this post
-          for (const m of medias) {
-            if (m.fileData) {
-              const datePart = fmtDateFR(p.dateKey).replace(/\//g, "-");
-              const fileName = `${acc.id}/${datePart}_${m.name || m.fileName || "media"}`;
-              files.push({ name: fileName, data: m.fileData });
-            }
-          }
-        }
-
-        files.push({ name: `${acc.id}/captions_${acc.id}.txt`, data: text, isText: true });
-      }
-
-      // Build ZIP using JSZip-like manual approach (base64 data URLs to blobs)
-      // Since we can't import JSZip, we'll download individual account files
-      // For each account, create a downloadable text file + trigger media downloads
-
-      for (const acc of ACCOUNTS) {
-        const accFiles = files.filter(f => f.name.startsWith(acc.id + "/"));
-        if (accFiles.length === 0) continue;
-
-        // Download the captions text file
-        const captionFile = accFiles.find(f => f.isText);
-        if (captionFile) {
-          const blob = new Blob([captionFile.data], { type: "text/plain;charset=utf-8" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `captions_${acc.id}_${MONTHS_FR[month].toLowerCase()}_${year}.txt`;
-          a.click();
-          URL.revokeObjectURL(url);
-        }
-
-        // Download media files
-        for (const f of accFiles) {
-          if (f.isText) continue;
-          if (f.data) {
-            const a = document.createElement("a");
-            a.href = f.data;
-            a.download = f.name.split("/").pop();
-            a.click();
-          }
-        }
-
-        // Small delay between accounts to avoid browser blocking
-        await new Promise(r => setTimeout(r, 500));
-      }
-    } catch (e) {
-      console.error("Export error:", e);
-    }
+      const csv = rows.map(r => r.join(";")).join("\n");
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${acc.id}_${MONTHS_FR[month].toLowerCase()}_${year}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
 
     setExporting(false);
   };
 
+  // ── Image URLs export (txt) ─────────────────────────────────────────────────
+  const handleImageExport = () => {
+    ACCOUNTS.forEach(acc => {
+      const accPosts = allPosts.filter(p => p.account === acc.id && p.imageUrl);
+      if (accPosts.length === 0) return;
+      let text = `${acc.name} — Images ${MONTHS_FR[month]} ${year}\n${"=".repeat(50)}\n\n`;
+      accPosts.forEach(p => {
+        text += `${p.dateKey} | ${p.type || "?"} | ${p.time}\n`;
+        text += `Sujet: ${p.subject || "—"}\n`;
+        (p.mediaItems || []).forEach((m, i) => {
+          if (m.url) text += `Image ${i+1}: ${m.url}\n`;
+        });
+        text += "\n";
+      });
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${acc.id}_images_${MONTHS_FR[month].toLowerCase()}_${year}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  };
+
+  const copyCaption = (key, caption) => {
+    navigator.clipboard.writeText(caption);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  if (showReadyView) return (
+    <div style={{ ...cardStyle, padding: 20, marginTop: 16 }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.text, fontFamily: F }}>Prêt à programmer</div>
+          <div style={{ fontSize: 12, color: C.textSecondary, fontFamily: F, marginTop: 2 }}>{MONTHS_FR[month]} {year} — {filtered.length} post{filtered.length !== 1 ? "s" : ""}</div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={handleCSVExport} disabled={exporting}
+            style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: C.green, color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 600 }}>
+            ↓ CSV (Later/Buffer)
+          </button>
+          <button onClick={handleImageExport}
+            style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: C.indigo, color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 600 }}>
+            ↓ URLs images
+          </button>
+          <button onClick={() => setShowReadyView(false)}
+            style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.surfaceSecondary, color: C.textSecondary, cursor: "pointer", fontSize: 12, fontFamily: F }}>
+            Fermer
+          </button>
+        </div>
+      </div>
+
+      {/* Account filter */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+        <button onClick={() => setFilterAcc("all")} style={{ ...pillBtn(filterAcc === "all"), fontSize: 11, padding: "4px 12px" }}>Tous</button>
+        {ACCOUNTS.map(a => (
+          <button key={a.id} onClick={() => setFilterAcc(a.id)} style={{ ...pillBtn(filterAcc === a.id, a.color), fontSize: 11, padding: "4px 12px" }}>{a.id}</button>
+        ))}
+      </div>
+
+      {filtered.length === 0 && (
+        <div style={{ textAlign: "center", color: C.textTertiary, padding: 40, fontSize: 13, fontFamily: F }}>Aucun post ce mois-ci</div>
+      )}
+
+      {/* Post cards */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {filtered.map((p, i) => {
+          const acc = ACCOUNTS.find(a => a.id === p.account);
+          const key = `${p.dateKey}-${p.account}-${p.idx}`;
+          const isCopied = copiedKey === key;
+          const [y, m, d] = p.dateKey.split("-");
+          const dateObj = new Date(Number(y), Number(m)-1, Number(d));
+          const dow = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"][dateObj.getDay()];
+
+          return (
+            <div key={key} style={{ borderRadius: 14, border: `1px solid ${C.border}`, overflow: "hidden", background: C.surface, boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+              {/* Top bar */}
+              <div style={{ padding: "10px 14px", background: acc ? `${acc.color}10` : C.surfaceSecondary, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: acc?.color, fontFamily: F }}>{p.account}</div>
+                <div style={{ fontSize: 12, color: C.textSecondary, fontFamily: F }}>{dow} {parseInt(d)} {MONTHS_FR[Number(m)-1]} {y}</div>
+                {p.time && <div style={{ fontSize: 11, color: C.blue, fontFamily: F, background: `${C.blue}12`, padding: "2px 8px", borderRadius: 6 }}>🕐 {p.time}</div>}
+                <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                  <Badge text={p.type || "?"} fg={p.type === "Photo" ? "#B8860B" : p.type === "Reel" ? "#8B3A62" : "#2E7D6F"} border={p.type === "Photo" ? "#B8860B" : p.type === "Reel" ? "#8B3A62" : "#2E7D6F"} />
+                  <Badge text={p.status || "Brouillon"} bg={p.status === "Validé" ? `${C.green}22` : p.status === "Publié" ? `${C.green}22` : `${C.orange}22`} fg={p.status === "Validé" || p.status === "Publié" ? C.green : C.orange} />
+                </div>
+              </div>
+
+              {/* Content */}
+              <div style={{ display: "flex", gap: 0 }}>
+                {/* Image */}
+                <div style={{ width: 120, minHeight: 120, flexShrink: 0, background: C.surfaceSecondary, borderRight: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {p.thumbSrc ? (
+                    <img src={p.thumbSrc} style={{ width: 120, height: 120, objectFit: "cover", display: "block" }} />
+                  ) : (
+                    <div style={{ textAlign: "center", padding: 10 }}>
+                      <div style={{ fontSize: 24 }}>📷</div>
+                      <div style={{ fontSize: 9, color: C.textTertiary, fontFamily: F, marginTop: 4 }}>Pas d'image</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Caption */}
+                <div style={{ flex: 1, padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                  {p.subject && <div style={{ fontSize: 13, fontWeight: 600, color: C.text, fontFamily: F }}>{p.subject}</div>}
+                  {p.caption ? (
+                    <>
+                      <div style={{ fontSize: 12, color: C.textSecondary, fontFamily: F, lineHeight: 1.5, maxHeight: 80, overflow: "hidden", whiteSpace: "pre-wrap" }}>
+                        {p.caption.slice(0, 200)}{p.caption.length > 200 ? "…" : ""}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, marginTop: "auto", flexWrap: "wrap" }}>
+                        <button onClick={() => copyCaption(key, p.caption)}
+                          style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: isCopied ? C.green : C.blue, color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 600, transition: "background .2s" }}>
+                          {isCopied ? "✓ Copié !" : "Copier la caption"}
+                        </button>
+                        {p.imageUrl && (
+                          <a href={p.imageUrl} target="_blank" rel="noopener noreferrer"
+                            style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.surfaceSecondary, color: C.text, cursor: "pointer", fontSize: 12, fontFamily: F, textDecoration: "none", fontWeight: 500 }}>
+                            Ouvrir l'image ↗
+                          </a>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 12, color: C.textTertiary, fontFamily: F, fontStyle: "italic" }}>Pas de caption encore</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   return (
-    <button onClick={handleExport} disabled={exporting} style={{ padding: "10px 24px", borderRadius: 10, border: "1px solid #1A365D", background: exporting ? C.textSecondary : C.text, color: "#fff", cursor: exporting ? "default" : "pointer", fontSize: 13, fontFamily: F, fontWeight: 500, letterSpacing: 0.5, transition: "background .2s" }}>
-      {exporting ? "Export en cours..." : "Exporter par établissement (captions + médias)"}
-    </button>
+    <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 16 }}>
+      <button onClick={() => setShowReadyView(true)}
+        style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: C.blue, color: "#fff", cursor: "pointer", fontSize: 13, fontFamily: F, fontWeight: 600, boxShadow: `0 2px 8px ${C.blue}44` }}>
+        📋 Voir les posts prêts à programmer
+      </button>
+      <button onClick={handleCSVExport} disabled={exporting}
+        style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: C.green, color: "#fff", cursor: exporting ? "default" : "pointer", fontSize: 13, fontFamily: F, fontWeight: 600, boxShadow: `0 2px 8px ${C.green}44` }}>
+        {exporting ? "Export..." : "↓ Exporter CSV"}
+      </button>
+    </div>
   );
 }
 
