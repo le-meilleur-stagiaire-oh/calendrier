@@ -1275,50 +1275,57 @@ export default function App() {
   const generatePlanning = () => {
     const newPosts = { ...posts };
     const types = ["Photo", "Carrousel", "Reel"];
+    const dim = getDaysInMonth(year, month);
 
     ACCOUNTS.forEach(a => {
       const settings = accountSettings[a.id] || { postsPerWeek: 3 };
       const postsPerWeek = Math.max(1, parseInt(settings.postsPerWeek) || 3);
       let typeIdx = 0;
 
-      // Build the 4 ISO weeks that cover this month.
-      // Each week starts on Monday. We find the Monday of the week containing day 1.
+      // Find the Monday of the week containing day 1 of this month
       const firstOfMonth = new Date(year, month, 1);
       const dow1 = firstOfMonth.getDay(); // 0=Sun
       const mondayOffset = dow1 === 0 ? -6 : 1 - dow1;
       const firstMonday = new Date(year, month, 1 + mondayOffset);
 
-      // Generate 4 full weeks (Mon–Sun) starting from that Monday
-      const weeks = Array.from({ length: 4 }, (_, wi) => {
-        return Array.from({ length: 7 }, (_, di) => {
+      // Build 4 ISO weeks (Mon–Sun) covering this month
+      const weeks = Array.from({ length: 4 }, (_, wi) =>
+        Array.from({ length: 7 }, (_, di) => {
           const d = new Date(firstMonday);
           d.setDate(firstMonday.getDate() + wi * 7 + di);
           return d;
-        });
-      });
+        })
+      );
 
       weeks.forEach(weekDays => {
-        // Spread postsPerWeek posts as evenly as possible over 7 days
-        const postsPerDay = Math.floor(postsPerWeek / 7);
-        const extra = postsPerWeek % 7; // days that get one more post
+        // Count how many days of this week fall inside the current month
+        const daysInMonth = weekDays.filter(d => d.getMonth() === month && d.getFullYear() === year).length;
 
-        // Choose which days get the extra post (random but deterministic within generation)
-        const extraDays = new Set();
+        // Prorate: if week is cut, scale posts proportionally and round
+        const postsForWeek = Math.round((daysInMonth / 7) * postsPerWeek);
+        if (postsForWeek === 0) return;
+
+        // Only work on days that belong to this month
+        const monthDays = weekDays.filter(d => d.getMonth() === month && d.getFullYear() === year);
+
+        // Spread postsForWeek evenly across the available days
+        const postsPerDay = Math.floor(postsForWeek / monthDays.length);
+        const extra = postsForWeek % monthDays.length;
+
+        // Pick which days get an extra post (deterministic shuffle)
+        const extraIndices = new Set();
         if (extra > 0) {
-          const indices = Array.from({ length: 7 }, (_, i) => i);
-          // Shuffle with a simple deterministic seed based on account+week
-          const seed = a.id.charCodeAt(0) + weekDays[0].getDate();
-          indices.sort((x, y) => ((x * 1664525 + seed) % 7) - ((y * 1664525 + seed) % 7));
-          indices.slice(0, extra).forEach(i => extraDays.add(i));
+          const indices = Array.from({ length: monthDays.length }, (_, i) => i);
+          const seed = a.id.charCodeAt(0) + monthDays[0].getDate();
+          indices.sort((x, y) => ((x * 1664525 + seed) % monthDays.length) - ((y * 1664525 + seed) % monthDays.length));
+          indices.slice(0, extra).forEach(i => extraIndices.add(i));
         }
 
-        weekDays.forEach((date, di) => {
-          const postsThisDay = postsPerDay + (extraDays.has(di) ? 1 : 0);
+        monthDays.forEach((date, di) => {
+          const postsThisDay = postsPerDay + (extraIndices.has(di) ? 1 : 0);
           if (postsThisDay === 0) return;
 
           const dateKey = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
-
-          // Skip days already generated (e.g. days from prev month picked up by another week)
           const existing = newPosts[dateKey] || [];
           const alreadyHas = existing.filter(p => p.account === a.id).length;
           const toAdd = postsThisDay - alreadyHas;
