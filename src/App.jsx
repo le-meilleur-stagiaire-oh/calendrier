@@ -29,7 +29,7 @@ const F = "system-ui, -apple-system, 'Helvetica Neue', Helvetica, sans-serif";
 const ACCOUNTS = [
   { id: "APG", name: "L'Apogée Courchevel", color: "#7B2D3B", light: "#F5E6E9" },
   { id: "CSM", name: "Château Saint-Martin & Spa", color: "#D4782F", light: "#FDF0E5" },
-  { id: "HDCER", name: "Hôtel du Cap-Eden-Roc", color: "#4A9FCC", light: "#E5F2FA" },
+  { id: "HDCER", name: "Hôtel du Cap-Eden-Roc", color: C.teal, light: "#E5F2FA" },
   { id: "BB", name: "Beefbar Courchevel", color: "#3A8A5C", light: "#E6F5ED" },
 ];
 
@@ -139,14 +139,73 @@ Output ONLY the caption text. No brackets, no labels, no quotes, no explanation.
   }
 }
 
-const selectStyle = { padding: "4px 8px", borderRadius: 6, border: "1px solid #D0D5DD", fontSize: 12, fontFamily: F, color: "#333", background: "#fff", cursor: "pointer" };
-const inputStyle = { width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #D0D5DD", fontSize: 13, fontFamily: F, color: "#333", outline: "none", boxSizing: "border-box" };
-const labelStyle = { fontSize: 10, fontWeight: 600, color: "#999", letterSpacing: 1, textTransform: "uppercase", fontFamily: F, display: "block", marginBottom: 4 };
-const navBtn = { width: 36, height: 36, borderRadius: "50%", border: "1px solid #D0D5DD", background: "#fff", cursor: "pointer", fontSize: 20, color: "#1A365D", display: "flex", alignItems: "center", justifyContent: "center" };
-const cardStyle = { background: "#fff", borderRadius: 12, border: "1px solid #E8E8E8", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.04)" };
+const F = "-apple-system, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif";
+
+// ── Design tokens ────────────────────────────────────────────────────────────
+const C = {
+  bg: "#F2F2F7",           // iOS system background
+  surface: "#FFFFFF",
+  surfaceSecondary: "#F2F2F7",
+  elevated: "rgba(255,255,255,0.85)",
+  border: "rgba(0,0,0,0.08)",
+  borderStrong: "rgba(0,0,0,0.13)",
+  text: "#1C1C1E",
+  textSecondary: "#636366",
+  textTertiary: "#AEAEB2",
+  blue: "#007AFF",
+  green: "#34C759",
+  red: "#FF3B30",
+  orange: "#FF9500",
+  indigo: "#5856D6",
+  teal: "#5AC8FA",
+};
+
+const selectStyle = {
+  padding: "6px 10px", borderRadius: 10,
+  border: `1px solid ${C.border}`,
+  fontSize: 13, fontFamily: F, color: C.text,
+  background: C.surfaceSecondary, cursor: "pointer",
+  outline: "none", appearance: "none",
+  WebkitAppearance: "none",
+};
+const inputStyle = {
+  width: "100%", padding: "9px 12px", borderRadius: 10,
+  border: `1px solid ${C.border}`,
+  fontSize: 14, fontFamily: F, color: C.text,
+  background: C.surfaceSecondary, outline: "none",
+  boxSizing: "border-box", transition: "border-color .15s",
+};
+const labelStyle = {
+  fontSize: 11, fontWeight: 600, color: C.textTertiary,
+  letterSpacing: 0.5, textTransform: "uppercase",
+  fontFamily: F, display: "block", marginBottom: 5,
+};
+const navBtn = {
+  width: 32, height: 32, borderRadius: "50%",
+  border: `1px solid ${C.border}`,
+  background: C.elevated, cursor: "pointer",
+  fontSize: 18, color: C.blue,
+  display: "flex", alignItems: "center", justifyContent: "center",
+  backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+  boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+};
+const cardStyle = {
+  background: C.surface, borderRadius: 16,
+  border: `1px solid ${C.border}`, overflow: "hidden",
+  boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+};
+const pillBtn = (active, color) => ({
+  padding: "6px 16px", borderRadius: 20,
+  border: `1.5px solid ${color || C.blue}`,
+  background: active ? (color || C.blue) : "transparent",
+  color: active ? "#fff" : (color || C.blue),
+  cursor: "pointer", fontSize: 12, fontFamily: F,
+  fontWeight: 600, transition: "all .18s",
+  letterSpacing: 0.2,
+});
 
 function Badge({ text, bg, fg, border: bd }) {
-  return <span style={{ display: "inline-block", padding: "1px 7px", borderRadius: 4, background: bg || "transparent", color: fg, fontSize: 10, fontWeight: 600, fontFamily: F, border: bd ? `1px solid ${bd}` : "none", letterSpacing: 0.3 }}>{text}</span>;
+  return <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 8, background: bg || "transparent", color: fg || C.textSecondary, fontSize: 10, fontWeight: 600, fontFamily: F, border: bd ? `1px solid ${bd}` : "none", letterSpacing: 0.3 }}>{text}</span>;
 }
 
 function OpenClosedPanel({ accountSettings, setAccountSettings, month, onGenerate, onClear }) {
@@ -155,69 +214,57 @@ function OpenClosedPanel({ accountSettings, setAccountSettings, month, onGenerat
   };
 
   return (
-    <div style={{ ...cardStyle, padding: 14, marginBottom: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: "#1A365D", letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 12 }}>
-        Statut des établissements — {MONTHS_FR[month]}
+    <div style={{ ...cardStyle, padding: 20, marginBottom: 16 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: C.textSecondary, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: F, marginBottom: 14 }}>
+        Établissements — {MONTHS_FR[month]}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
         {ACCOUNTS.map(a => {
           const s = accountSettings[a.id] || { isOpen: true, postsPerWeek: 3, closingDate: "", openingDate: "" };
           return (
-            <div key={a.id} style={{ padding: "10px 14px", borderRadius: 8, border: `1px solid ${a.color}22`, borderLeft: `3px solid ${a.color}`, background: "#FAFBFC" }}>
-              {/* Top row */}
+            <div key={a.id} style={{ padding: "12px 14px", borderRadius: 12, border: `1px solid ${C.border}`, background: C.surfaceSecondary }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                {/* Open/closed toggle button */}
                 <button
                   onClick={() => updateSetting(a.id, "isOpen", !s.isOpen)}
-                  style={{ width: 28, height: 28, borderRadius: "50%", border: "none", background: s.isOpen ? "#4CAF50" : "#E53935", cursor: "pointer", flexShrink: 0, transition: "background .2s", boxShadow: "0 1px 3px rgba(0,0,0,.2)" }}
+                  style={{ width: 26, height: 26, borderRadius: "50%", border: "none", background: s.isOpen ? C.green : C.red, cursor: "pointer", flexShrink: 0, transition: "background .2s", boxShadow: `0 2px 6px ${s.isOpen ? C.green : C.red}55` }}
                   title={s.isOpen ? "Cliquer pour fermer" : "Cliquer pour ouvrir"}
                 />
-                {/* Account name */}
-                <span style={{ fontWeight: 700, fontSize: 13, color: a.color, fontFamily: F, minWidth: 50 }}>{a.id}</span>
-                <span style={{ fontSize: 11, color: "#999", fontFamily: F }}>{a.name}</span>
-                <div style={{ flex: 1 }} />
-                {/* Posts per week input */}
+                <span style={{ fontWeight: 700, fontSize: 13, color: a.color, fontFamily: F }}>{a.id}</span>
+                <span style={{ fontSize: 11, color: C.textTertiary, fontFamily: F, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <label style={{ fontSize: 11, color: "#999", fontFamily: F, whiteSpace: "nowrap" }}>Posts/sem :</label>
                   <input
                     type="number" min="0" max="14" value={s.postsPerWeek}
                     onChange={e => updateSetting(a.id, "postsPerWeek", e.target.value)}
-                    style={{ width: 48, padding: "4px 6px", borderRadius: 6, border: "1px solid #D0D5DD", fontSize: 13, fontFamily: F, textAlign: "center", color: "#1A365D", fontWeight: 600 }}
+                    style={{ width: 44, padding: "4px 6px", borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: F, textAlign: "center", color: C.blue, fontWeight: 700, background: C.surface, outline: "none" }}
                   />
+                  <span style={{ fontSize: 10, color: C.textTertiary, fontFamily: F }}>/sem</span>
                 </div>
               </div>
-              {/* Bottom row — dates */}
-              <div style={{ display: "flex", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <label style={{ fontSize: 10, color: "#BBB", fontFamily: F, whiteSpace: "nowrap" }}>Fermeture :</label>
-                  <input
-                    type="date" value={s.closingDate || ""}
-                    onChange={e => updateSetting(a.id, "closingDate", e.target.value)}
-                    style={{ padding: "3px 6px", borderRadius: 5, border: "1px solid #E8E8E8", fontSize: 11, fontFamily: F, color: "#555" }}
-                  />
+              <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ fontSize: 10, color: C.textTertiary, fontFamily: F }}>Fermeture</span>
+                  <input type="date" value={s.closingDate || ""} onChange={e => updateSetting(a.id, "closingDate", e.target.value)}
+                    style={{ padding: "2px 6px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 11, fontFamily: F, color: C.text, background: C.surface, outline: "none" }} />
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <label style={{ fontSize: 10, color: "#BBB", fontFamily: F, whiteSpace: "nowrap" }}>Ouverture :</label>
-                  <input
-                    type="date" value={s.openingDate || ""}
-                    onChange={e => updateSetting(a.id, "openingDate", e.target.value)}
-                    style={{ padding: "3px 6px", borderRadius: 5, border: "1px solid #E8E8E8", fontSize: 11, fontFamily: F, color: "#555" }}
-                  />
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ fontSize: 10, color: C.textTertiary, fontFamily: F }}>Ouverture</span>
+                  <input type="date" value={s.openingDate || ""} onChange={e => updateSetting(a.id, "openingDate", e.target.value)}
+                    style={{ padding: "2px 6px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 11, fontFamily: F, color: C.text, background: C.surface, outline: "none" }} />
                 </div>
               </div>
             </div>
           );
         })}
       </div>
-      <div style={{ display: "flex", gap: 6, marginTop: 12, justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
         {onClear && (
-          <button onClick={onClear} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #E53935", background: "#fff", color: "#E53935", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 500, letterSpacing: 0.5 }}>
+          <button onClick={onClear} style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${C.red}`, background: "transparent", color: C.red, cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 500 }}>
             Effacer le planning
           </button>
         )}
         {onGenerate && (
-          <button onClick={onGenerate} style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid #1A365D", background: "#1A365D", color: "#fff", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 500, letterSpacing: 0.5 }}>
-            Générer le planning du mois
+          <button onClick={onGenerate} style={{ padding: "8px 18px", borderRadius: 10, border: "none", background: C.blue, color: "#fff", cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600, boxShadow: `0 2px 8px ${C.blue}44` }}>
+            Générer le planning
           </button>
         )}
       </div>
@@ -238,7 +285,7 @@ function MonthlyRecap({ year, month, posts, openStatus }) {
 
   return (
     <div style={{ ...cardStyle, padding: 16, marginTop: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: "#1A365D", letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 14 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: C.text, letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 14 }}>
         Récap — {MONTHS_FR[month]} {year}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10, marginBottom: 14 }}>
@@ -250,13 +297,13 @@ function MonthlyRecap({ year, month, posts, openStatus }) {
           const ok = diff >= 0;
           const hasReel = byAccount[a.id].Reel > 0;
           return (
-            <div key={a.id} style={{ padding: 12, borderRadius: 8, border: `1px solid ${a.color}22`, borderLeft: `3px solid ${a.color}`, background: "#FAFBFC" }}>
+            <div key={a.id} style={{ padding: 12, borderRadius: 10, border: `1px solid ${a.color}22`, borderLeft: `3px solid ${a.color}`, background: C.surfaceSecondary }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <span style={{ fontWeight: 700, fontSize: 13, color: a.color, fontFamily: F }}>{a.id}</span>
-                <span style={{ fontSize: 10, color: "#999", fontFamily: F }}>{isOpen ? "Ouvert" : "Fermé"}</span>
+                <span style={{ fontSize: 10, color: C.textSecondary, fontFamily: F }}>{isOpen ? "Ouvert" : "Fermé"}</span>
               </div>
-              <div style={{ fontSize: 24, fontWeight: 300, color: "#1A365D", fontFamily: F }}>{actual}<span style={{ fontSize: 13, color: "#999" }}>/{target}</span></div>
-              <div style={{ fontSize: 10, color: ok ? "#4CAF50" : "#E53935", fontFamily: F, marginTop: 2 }}>
+              <div style={{ fontSize: 24, fontWeight: 300, color: C.text, fontFamily: F }}>{actual}<span style={{ fontSize: 13, color: C.textSecondary }}>/{target}</span></div>
+              <div style={{ fontSize: 10, color: ok ? C.green : C.red, fontFamily: F, marginTop: 2 }}>
                 {ok ? "Objectif atteint" : `${Math.abs(diff)} post${Math.abs(diff) > 1 ? "s" : ""} manquant${Math.abs(diff) > 1 ? "s" : ""}`}
               </div>
               <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
@@ -270,7 +317,7 @@ function MonthlyRecap({ year, month, posts, openStatus }) {
         })}
       </div>
       {conflicts.length > 0 && (
-        <div style={{ padding: 10, borderRadius: 8, background: "#FFF3E0", border: "1px solid #FFE0B2", marginTop: 8 }}>
+        <div style={{ padding: 10, borderRadius: 10, background: "#FFF3E0", border: "1px solid #FFE0B2", marginTop: 8 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: "#E65100", fontFamily: F, marginBottom: 4 }}>Attention — posts en doublon</div>
           {conflicts.map(([key]) => {
             const [date, acc] = [key.substring(0, 10), key.substring(11)];
@@ -385,7 +432,7 @@ function ExportButton({ year, month, posts }) {
   };
 
   return (
-    <button onClick={handleExport} disabled={exporting} style={{ padding: "10px 24px", borderRadius: 8, border: "1px solid #1A365D", background: exporting ? "#999" : "#1A365D", color: "#fff", cursor: exporting ? "default" : "pointer", fontSize: 13, fontFamily: F, fontWeight: 500, letterSpacing: 0.5, transition: "background .2s" }}>
+    <button onClick={handleExport} disabled={exporting} style={{ padding: "10px 24px", borderRadius: 10, border: "1px solid #1A365D", background: exporting ? C.textSecondary : C.text, color: "#fff", cursor: exporting ? "default" : "pointer", fontSize: 13, fontFamily: F, fontWeight: 500, letterSpacing: 0.5, transition: "background .2s" }}>
       {exporting ? "Export en cours..." : "Exporter par établissement (captions + médias)"}
     </button>
   );
@@ -402,9 +449,9 @@ function CalendarMonth({ year, month, posts, onDayClick, selectedDay, onDeletePo
   const [dragOver, setDragOver] = useState(null);
 
   return (
-    <div style={cardStyle}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: "1px solid #E8E8E8" }}>
-        {DAYS_FR.map(d => <div key={d} style={{ padding: "10px 0", textAlign: "center", fontFamily: F, fontSize: 11, fontWeight: 600, color: "#1A365D", letterSpacing: 1.5, textTransform: "uppercase", background: "#F7F9FC" }}>{d}</div>)}
+    <div style={{ ...cardStyle }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: `1px solid ${C.border}` }}>
+        {DAYS_FR.map(d => <div key={d} style={{ padding: "10px 0", textAlign: "center", fontFamily: F, fontSize: 11, fontWeight: 600, color: C.textTertiary, letterSpacing: 1, textTransform: "uppercase", background: C.surfaceSecondary }}>{d}</div>)}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
         {cells.map((day, i) => {
@@ -413,75 +460,58 @@ function CalendarMonth({ year, month, posts, onDayClick, selectedDay, onDeletePo
           const isSel = day === selectedDay;
           const isWe = i % 7 >= 5;
           const isDragTarget = dragOver === dateKey;
+          const isToday = day && new Date().getDate() === day && new Date().getMonth() === month && new Date().getFullYear() === year;
           return (
             <div key={i}
               onClick={() => day && onDayClick(day)}
               onDragOver={e => { if (!dateKey) return; e.preventDefault(); setDragOver(dateKey); }}
               onDragLeave={() => setDragOver(null)}
               onDrop={e => {
-                e.preventDefault();
-                setDragOver(null);
+                e.preventDefault(); setDragOver(null);
                 if (!dateKey) return;
-                try {
-                  const data = JSON.parse(e.dataTransfer.getData("text/plain"));
-                  if (data.fromDateKey !== dateKey) onDropPost(data.fromDateKey, data.fromIndex, dateKey);
-                } catch {}
+                try { const data = JSON.parse(e.dataTransfer.getData("text/plain")); if (data.fromDateKey !== dateKey) onDropPost(data.fromDateKey, data.fromIndex, dateKey); } catch {}
               }}
-              style={{ minHeight: 90, padding: "4px 6px", borderRight: (i+1) % 7 !== 0 ? "1px solid #F0F0F0" : "none", borderBottom: "1px solid #F0F0F0", cursor: day ? "pointer" : "default", background: isDragTarget ? "#E8F0FD" : isSel ? "#F0F4FA" : isWe && day ? "#FAFAFA" : day ? "#fff" : "#F8F8F8", transition: "background .15s", position: "relative", outline: isDragTarget ? "2px dashed #1A365D" : "none" }}>
+              style={{ minHeight: 90, padding: "6px 6px 4px", borderRight: (i+1) % 7 !== 0 ? `1px solid ${C.border}` : "none", borderBottom: `1px solid ${C.border}`, cursor: day ? "pointer" : "default", background: isDragTarget ? `${C.blue}08` : isSel ? `${C.blue}06` : isWe && day ? C.surfaceSecondary : day ? C.surface : C.surfaceSecondary, transition: "background .12s", position: "relative", outline: isDragTarget ? `2px dashed ${C.blue}` : "none" }}>
               {day && (<>
-                <div style={{ fontSize: 13, fontWeight: isSel ? 700 : 400, color: isSel ? "#1A365D" : "#666", fontFamily: F, marginBottom: 4 }}>{day}</div>
+                <div style={{ fontSize: 13, fontWeight: isToday ? 700 : isSel ? 600 : 400, color: isToday ? "#fff" : isSel ? C.blue : isWe ? C.textSecondary : C.text, fontFamily: F, marginBottom: 4, width: 22, height: 22, borderRadius: "50%", background: isToday ? C.blue : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{day}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                   {dayPosts.map((p, j) => {
                     const acc = ACCOUNTS.find(a => a.id === p.account);
                     const statusMap = {
-                      "Brouillon": { letter: "B", bg: "#F5C542", color: "#fff" },
-                      "En cours": { letter: "EC", bg: "#7BC67E", color: "#fff" },
-                      "Validé": { letter: "V", bg: "#1B5E20", color: "#fff" },
-                      "Programmé": { letter: "P", bg: "#E67E22", color: "#fff" },
-                      "Publié": { letter: "", bg: "#4CAF50", color: "#fff", square: true },
+                      "Brouillon": { letter: "B", bg: "#FF9500" },
+                      "En cours": { letter: "•", bg: C.blue },
+                      "Validé": { letter: "✓", bg: C.green },
+                      "Programmé": { letter: "P", bg: C.indigo },
+                      "Publié": { letter: "✓", bg: C.green },
                     };
                     const st = statusMap[p.status || "Brouillon"] || statusMap["Brouillon"];
-                    // First image from mediaItems (local upload or library URL)
-                    const firstImage = (p.mediaItems || []).find(m => (m.fileData && m.fileData.startsWith("data:image")) || (m.url && m.fileType?.startsWith("image/")));
+                    const firstImage = (p.mediaItems || []).find(m => (m.fileData && m.fileData.startsWith("data:image")) || (m.url && (m.fileType?.startsWith("image/") || m.url.match(/\.(jpg|jpeg|png|webp|gif)/i))));
                     const thumbSrc = firstImage?.fileData || firstImage?.url;
                     return (
-                      <div key={j}
-                        draggable
-                        onDragStart={e => { e.stopPropagation(); e.dataTransfer.setData("text/plain", JSON.stringify({ fromDateKey: dateKey, fromIndex: j })); }}
+                      <div key={j} draggable onDragStart={e => { e.stopPropagation(); e.dataTransfer.setData("text/plain", JSON.stringify({ fromDateKey: dateKey, fromIndex: j })); }}
                         onClick={e => e.stopPropagation()}
-                        style={{ display: "flex", alignItems: "center", gap: 3, cursor: "grab", borderRadius: 4, padding: "1px 0" }}>
-                        {/* Thumbnail */}
+                        style={{ display: "flex", alignItems: "center", gap: 3, cursor: "grab", borderRadius: 5, padding: "1px 0" }}>
                         {thumbSrc ? (
-                          <img src={thumbSrc} style={{ width: 18, height: 18, borderRadius: 3, objectFit: "cover", flexShrink: 0, border: `1px solid ${acc?.color || "#ddd"}44` }} />
+                          <img src={thumbSrc} style={{ width: 16, height: 16, borderRadius: 3, objectFit: "cover", flexShrink: 0 }} />
                         ) : (
-                          <div style={{ width: 18, height: 18, borderRadius: 3, background: acc?.color ? `${acc.color}22` : "#F0F0F0", flexShrink: 0, border: `1px solid ${acc?.color || "#ddd"}33` }} />
+                          <div style={{ width: 16, height: 16, borderRadius: 3, background: acc?.color ? `${acc.color}30` : "#F0F0F0", flexShrink: 0 }} />
                         )}
-                        {/* Split badge: account | type */}
-                        <div style={{ display: "flex", borderRadius: 4, overflow: "hidden", fontSize: 9, fontWeight: 600, fontFamily: F, lineHeight: 1 }}>
-                          <span style={{ padding: "3px 5px", background: acc?.color || "#999", color: "#fff" }}>{p.account}</span>
-                          <span style={{ padding: "3px 5px", background: acc ? `${acc.color}18` : "#F5F5F5", color: acc?.color || "#666" }}>{p.type || "—"}</span>
+                        <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", fontSize: 9, fontWeight: 600, fontFamily: F, lineHeight: 1 }}>
+                          <span style={{ padding: "2px 4px", background: acc?.color || C.textSecondary, color: "#fff" }}>{p.account}</span>
+                          <span style={{ padding: "2px 4px", background: acc ? `${acc.color}18` : "#F5F5F5", color: acc?.color || "#666" }}>{p.type || "—"}</span>
                         </div>
-                        {/* Status indicator */}
-                        {st.square ? (
-                          <span style={{ width: 14, height: 14, borderRadius: 3, background: st.bg, display: "inline-flex", alignItems: "center", justifyContent: "center" }} title="Publié">
-                            <span style={{ color: "#fff", fontSize: 8, fontWeight: 700 }}>✓</span>
-                          </span>
-                        ) : (
-                          <span style={{ minWidth: 16, height: 16, borderRadius: "50%", background: st.bg, display: "inline-flex", alignItems: "center", justifyContent: "center" }} title={p.status || "Brouillon"}>
-                            <span style={{ color: st.color, fontSize: 7, fontWeight: 700, fontFamily: F }}>{st.letter}</span>
-                          </span>
-                        )}
-                        {/* Delete */}
+                        <span style={{ width: 12, height: 12, borderRadius: "50%", background: st.bg, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <span style={{ color: "#fff", fontSize: 7, fontWeight: 700 }}>{st.letter}</span>
+                        </span>
                         <span onClick={e => { e.stopPropagation(); onDeletePost(dateKey, j); }}
-                          style={{ fontSize: 12, color: "#CCC", cursor: "pointer", marginLeft: "auto", lineHeight: 1, padding: "0 4px", borderRadius: 3 }}
-                          onMouseEnter={e => e.target.style.color = "#E53935"}
-                          onMouseLeave={e => e.target.style.color = "#CCC"}
-                          title="Supprimer">×</span>
+                          style={{ fontSize: 11, color: C.textTertiary, cursor: "pointer", marginLeft: "auto", padding: "0 2px", lineHeight: 1 }}
+                          onMouseEnter={e => e.target.style.color = C.red}
+                          onMouseLeave={e => e.target.style.color = C.textTertiary}>×</span>
                       </div>
                     );
                   })}
                 </div>
-                {dayPosts.length === 0 && <div style={{ fontSize: 18, color: "#DDD", position: "absolute", bottom: 4, right: 8, fontWeight: 300 }}>+</div>}
+                {dayPosts.length === 0 && <div style={{ fontSize: 16, color: C.border, position: "absolute", bottom: 4, right: 6, fontWeight: 300 }}>+</div>}
               </>)}
             </div>
           );
@@ -505,7 +535,7 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
   const suggestedTime = post.account && BEST_TIMES[post.account] ? (isWeekend ? BEST_TIMES[post.account].weekend : BEST_TIMES[post.account].weekday) : null;
 
   return (
-    <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${acc?.color || "#ddd"}22`, padding: 16, marginBottom: 12, borderLeft: `3px solid ${acc?.color || "#ddd"}`, boxShadow: "0 1px 2px rgba(0,0,0,.03)" }}>
+    <div style={{ background: C.surface, borderRadius: 14, border: `1px solid ${C.border}`, padding: 16, marginBottom: 10, borderLeft: `3px solid ${acc?.color || C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
       <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
         <select value={post.account} onChange={e => onUpdate("account", e.target.value)} style={selectStyle}>
           <option value="">Compte</option>
@@ -520,13 +550,13 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <div style={{ flex: 1 }} />
-        <button onClick={() => setShowDup(!showDup)} style={{ background: "none", border: "1px solid #D0D5DD", borderRadius: 4, color: "#999", cursor: "pointer", fontSize: 10, padding: "2px 8px", fontFamily: F }} title="Dupliquer">Dupliquer</button>
-        <button onClick={onDelete} style={{ background: "none", border: "none", color: "#CCC", cursor: "pointer", fontSize: 16, padding: "2px 6px" }} title="Supprimer">×</button>
+        <button onClick={() => setShowDup(!showDup)} style={{ background: "none", border: "1px solid #D0D5DD", borderRadius: 6, color: C.textSecondary, cursor: "pointer", fontSize: 10, padding: "2px 8px", fontFamily: F }} title="Dupliquer">Dupliquer</button>
+        <button onClick={onDelete} style={{ background: "none", border: "none", color: C.textTertiary, cursor: "pointer", fontSize: 16, padding: "2px 6px" }} title="Supprimer">×</button>
       </div>
 
       {showDup && (
-        <div style={{ padding: 10, marginBottom: 10, background: "#F7F9FC", borderRadius: 8, border: "1px solid #E8E8E8" }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: "#1A365D", marginBottom: 6, fontFamily: F, letterSpacing: 0.5, textTransform: "uppercase" }}>Dupliquer ce post</div>
+        <div style={{ padding: 10, marginBottom: 10, background: C.surfaceSecondary, borderRadius: 10, border: "1px solid #E8E8E8" }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: C.text, marginBottom: 6, fontFamily: F, letterSpacing: 0.5, textTransform: "uppercase" }}>Dupliquer ce post</div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <input type="date" value={dupDate} onChange={e => setDupDate(e.target.value)} style={{ ...selectStyle, fontSize: 11 }} />
             <select value={dupAccount} onChange={e => setDupAccount(e.target.value)} style={{ ...selectStyle, fontSize: 11 }}>
@@ -535,13 +565,13 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
             </select>
             <button onClick={() => {
               if (dupDate) { onDuplicate(dupDate, dupAccount || post.account); setShowDup(false); setDupDate(""); setDupAccount(""); }
-            }} style={{ padding: "3px 10px", borderRadius: 4, border: "1px solid #1A365D", background: "#1A365D", color: "#fff", cursor: "pointer", fontSize: 10, fontFamily: F }}>OK</button>
+            }} style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid #1A365D", background: C.text, color: "#fff", cursor: "pointer", fontSize: 10, fontFamily: F }}>OK</button>
           </div>
         </div>
       )}
 
       {suggestedTime && (
-        <div style={{ fontSize: 10, color: "#4A7FB5", fontFamily: F, marginBottom: 8, padding: "4px 8px", background: "#F0F6FC", borderRadius: 4, display: "inline-block" }}>
+        <div style={{ fontSize: 10, color: C.blue, fontFamily: F, marginBottom: 8, padding: "4px 8px", background: "#F0F6FC", borderRadius: 6, display: "inline-block" }}>
           Horaire suggéré : {suggestedTime} ({isWeekend ? "weekend" : "semaine"})
         </div>
       )}
@@ -553,7 +583,7 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
               const subjects = SUBJECT_BANK[post.account];
               const random = subjects[Math.floor(Math.random() * subjects.length)];
               onUpdate("subject", random);
-            }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #D0D5DD", background: "#F9FAFB", cursor: "pointer", color: "#666", fontFamily: F }}>
+            }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #D0D5DD", background: C.surfaceSecondary, cursor: "pointer", color: "#666", fontFamily: F }}>
               Générer un sujet
             </button>
           )}
@@ -571,14 +601,14 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
         <label style={labelStyle}>Médias</label>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {(post.mediaItems || []).map((item, i) => (
-              <div key={i} style={{ padding: "6px 10px", background: "#F7F9FC", borderRadius: 6, border: "1px solid #E8E8E8" }}>
+              <div key={i} style={{ padding: "6px 10px", background: C.surfaceSecondary, borderRadius: 8, border: "1px solid #E8E8E8" }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input value={item.name || ""} onChange={e => {
                     const items = [...(post.mediaItems || [])];
                     items[i] = { ...items[i], name: e.target.value };
                     onUpdate("mediaItems", items);
                   }} placeholder="Nom du fichier" style={{ ...inputStyle, flex: 1, fontSize: 11, padding: "4px 6px" }} />
-                  <label style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid #4A9FCC", background: "#fff", color: "#4A9FCC", cursor: "pointer", fontSize: 10, fontFamily: F, fontWeight: 500, whiteSpace: "nowrap" }}>
+                  <label style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #4A9FCC", background: "#fff", color: C.teal, cursor: "pointer", fontSize: 10, fontFamily: F, fontWeight: 500, whiteSpace: "nowrap" }}>
                     {item.fileData ? "Changer" : "Uploader"}
                     <input type="file" accept="image/*,video/*" style={{ display: "none" }} onChange={e => {
                       const file = e.target.files?.[0];
@@ -596,17 +626,17 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
                     const items = [...(post.mediaItems || [])];
                     items.splice(i, 1);
                     onUpdate("mediaItems", items);
-                  }} style={{ fontSize: 14, color: "#CCC", cursor: "pointer", padding: "0 4px" }} onMouseEnter={e => e.target.style.color = "#E53935"} onMouseLeave={e => e.target.style.color = "#CCC"}>×</span>
+                  }} style={{ fontSize: 14, color: C.textTertiary, cursor: "pointer", padding: "0 4px" }} onMouseEnter={e => e.target.style.color = C.red} onMouseLeave={e => e.target.style.color = C.textTertiary}>×</span>
                 </div>
                 {/* Thumbnail preview */}
                 {item.fileData && item.fileData.startsWith("data:image") && (
-                  <img src={item.fileData} style={{ marginTop: 6, maxWidth: 120, maxHeight: 80, borderRadius: 4, objectFit: "cover", border: "1px solid #E8E8E8" }} />
+                  <img src={item.fileData} style={{ marginTop: 6, maxWidth: 120, maxHeight: 80, borderRadius: 6, objectFit: "cover", border: "1px solid #E8E8E8" }} />
                 )}
                 {item.url && item.fileType?.startsWith("image/") && !item.fileData && (
-                  <img src={item.url} style={{ marginTop: 6, maxWidth: 120, maxHeight: 80, borderRadius: 4, objectFit: "cover", border: "1px solid #E8E8E8" }} />
+                  <img src={item.url} style={{ marginTop: 6, maxWidth: 120, maxHeight: 80, borderRadius: 6, objectFit: "cover", border: "1px solid #E8E8E8" }} />
                 )}
                 {item.fileData && item.fileData.startsWith("data:video") && (
-                  <div style={{ marginTop: 6, fontSize: 10, color: "#4A9FCC", fontFamily: F }}>Vidéo : {item.fileName || "uploadée"}</div>
+                  <div style={{ marginTop: 6, fontSize: 10, color: C.teal, fontFamily: F }}>Vidéo : {item.fileName || "uploadée"}</div>
                 )}
                 {/* Google Drive link */}
                 <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
@@ -615,7 +645,7 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
                     items[i] = { ...items[i], driveUrl: e.target.value };
                     onUpdate("mediaItems", items);
                   }} placeholder="Lien Google Drive (optionnel)" style={{ ...inputStyle, fontSize: 10, padding: "3px 6px", flex: 1 }} />
-                  {item.driveUrl && <a href={item.driveUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: "#4A9FCC", textDecoration: "none", whiteSpace: "nowrap" }}>Ouvrir</a>}
+                  {item.driveUrl && <a href={item.driveUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: C.teal, textDecoration: "none", whiteSpace: "nowrap" }}>Ouvrir</a>}
                 </div>
               </div>
           ))}
@@ -624,16 +654,16 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
               const items = [...(post.mediaItems || [])];
               items.push({ name: "", fileData: null, fileName: "", driveUrl: "" });
               onUpdate("mediaItems", items);
-            }} style={{ flex: 1, padding: "6px 12px", borderRadius: 6, border: "1px dashed #D0D5DD", background: "#FAFBFC", cursor: "pointer", fontSize: 11, color: "#999", fontFamily: F, display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+            }} style={{ flex: 1, padding: "6px 12px", borderRadius: 8, border: "1px dashed #D0D5DD", background: C.surfaceSecondary, cursor: "pointer", fontSize: 11, color: C.textSecondary, fontFamily: F, display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
               + Uploader un média
             </button>
             <button onClick={() => setShowLibrary(true)}
-              style={{ flex: 1, padding: "6px 12px", borderRadius: 6, border: "1px dashed #1A365D", background: "#F0F4FA", cursor: "pointer", fontSize: 11, color: "#1A365D", fontFamily: F, display: "flex", alignItems: "center", gap: 6, justifyContent: "center", fontWeight: 500 }}>
+              style={{ flex: 1, padding: "6px 12px", borderRadius: 8, border: "1px dashed #1A365D", background: "#F0F4FA", cursor: "pointer", fontSize: 11, color: C.text, fontFamily: F, display: "flex", alignItems: "center", gap: 6, justifyContent: "center", fontWeight: 500 }}>
               📁 Choisir depuis la librairie
             </button>
           </div>
           {(post.mediaItems || []).length > 0 && (
-            <div style={{ fontSize: 10, color: "#999", fontFamily: F }}>
+            <div style={{ fontSize: 10, color: C.textSecondary, fontFamily: F }}>
               {(post.mediaItems || []).length} média{(post.mediaItems || []).length > 1 ? "s" : ""}
             </div>
           )}
@@ -649,13 +679,13 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
           }}
         />
       )}
-      {generating && <div style={{ padding: 12, textAlign: "center", color: "#4A7FB5", fontSize: 12, fontStyle: "italic", fontFamily: F }}>Génération de la caption en cours...</div>}
+      {generating && <div style={{ padding: 12, textAlign: "center", color: C.blue, fontSize: 12, fontStyle: "italic", fontFamily: F }}>Génération de la caption en cours...</div>}
       {post.caption && (
         <div style={{ marginBottom: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
             <label style={labelStyle}>Caption</label>
             <button onClick={onGenerate} disabled={generating || !post.subject || !post.account}
-              style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, border: "1px solid #D0D5DD", background: "#F9FAFB", cursor: "pointer", color: "#666", fontFamily: F }}>Regénérer</button>
+              style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #D0D5DD", background: C.surfaceSecondary, cursor: "pointer", color: "#666", fontFamily: F }}>Regénérer</button>
           </div>
           <textarea value={post.caption} onChange={e => onUpdate("caption", e.target.value)}
             rows={12} style={{ ...inputStyle, lineHeight: 1.6, minHeight: 200, resize: "vertical" }} />
@@ -663,7 +693,7 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
       )}
       {post.caption && (
         <button onClick={() => { navigator.clipboard.writeText(post.caption); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-          style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #1A365D", background: copied ? "#4CAF50" : "#1A365D", color: "#fff", cursor: "pointer", fontSize: 11, fontFamily: F, letterSpacing: 0.5, fontWeight: 500, transition: "background .2s" }}>
+          style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #1A365D", background: copied ? C.green : C.text, color: "#fff", cursor: "pointer", fontSize: 11, fontFamily: F, letterSpacing: 0.5, fontWeight: 500, transition: "background .2s" }}>
           {copied ? "Copié !" : "Copier la caption"}
         </button>
       )}
@@ -692,17 +722,17 @@ function DayView({ year, month, day, dateKey, dayName, posts, setPosts, onClose 
   const dayPosts = posts[dateKey] || [];
 
   return (
-    <div style={{ background: "#FAFBFC", borderRadius: 12, border: "1px solid #E8E8E8", padding: 20, marginTop: 16 }}>
+    <div style={{ background: C.surface, borderRadius: 16, border: `1px solid ${C.border}`, padding: 20, marginTop: 14, boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h3 style={{ fontFamily: F, fontSize: 16, fontWeight: 500, color: "#1A365D", margin: 0, letterSpacing: 1, textTransform: "uppercase" }}>
+        <h3 style={{ fontFamily: F, fontSize: 17, fontWeight: 700, color: C.text, margin: 0, letterSpacing: -0.2 }}>
           {dayName} {day} {MONTHS_FR[month]} {year}
         </h3>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={addPost} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #1A365D", background: "#1A365D", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 500 }}>+ Ajouter</button>
-          <button onClick={onClose} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #D0D5DD", background: "#fff", color: "#666", cursor: "pointer", fontSize: 12, fontFamily: F }}>Fermer</button>
+          <button onClick={addPost} style={{ padding: "7px 16px", borderRadius: 10, border: "none", background: C.blue, color: "#fff", cursor: "pointer", fontSize: 13, fontFamily: F, fontWeight: 600, boxShadow: `0 2px 8px ${C.blue}44` }}>+ Ajouter</button>
+          <button onClick={onClose} style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.surfaceSecondary, color: C.textSecondary, cursor: "pointer", fontSize: 13, fontFamily: F }}>Fermer</button>
         </div>
       </div>
-      {dayPosts.length === 0 && <div style={{ padding: 30, textAlign: "center", color: "#CCC", fontSize: 13, fontStyle: "italic", fontFamily: F }}>Aucun post prévu — cliquez sur "+ Ajouter" pour en créer un</div>}
+      {dayPosts.length === 0 && <div style={{ padding: 30, textAlign: "center", color: C.textTertiary, fontSize: 14, fontFamily: F }}>Aucun post prévu — cliquez sur "+ Ajouter"</div>}
       {dayPosts.map((post, idx) => (
         <PostEditor key={idx} post={post} dateKey={dateKey} index={idx}
           generating={generatingKey === idx}
@@ -741,8 +771,8 @@ function WeekView({ year, month, weekDays, posts, setPosts }) {
   };
 
   return (
-    <div style={{ background: "#FAFBFC", borderRadius: 12, border: "1px solid #E8E8E8", padding: 20, marginTop: 16 }}>
-      <h3 style={{ fontFamily: F, fontSize: 16, fontWeight: 500, color: "#1A365D", margin: "0 0 16px", letterSpacing: 1, textTransform: "uppercase" }}>
+    <div style={{ background: C.surfaceSecondary, borderRadius: 12, border: "1px solid #E8E8E8", padding: 20, marginTop: 16 }}>
+      <h3 style={{ fontFamily: F, fontSize: 16, fontWeight: 500, color: C.text, margin: "0 0 16px", letterSpacing: 1, textTransform: "uppercase" }}>
         Semaine du {weekDays[0]} au {weekDays[weekDays.length - 1]} {MONTHS_FR[month]}
       </h3>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
@@ -755,12 +785,12 @@ function WeekView({ year, month, weekDays, posts, setPosts }) {
             <div key={day} style={{ background: "#fff", borderRadius: 10, border: "1px solid #ECECEC", padding: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                 <div>
-                  <span style={{ fontFamily: F, fontSize: 22, fontWeight: 300, color: "#1A365D" }}>{day}</span>
-                  <span style={{ fontFamily: F, fontSize: 12, color: "#999", marginLeft: 8, letterSpacing: 1, textTransform: "uppercase" }}>{DAYS_FULL[mb]}</span>
+                  <span style={{ fontFamily: F, fontSize: 22, fontWeight: 300, color: C.text }}>{day}</span>
+                  <span style={{ fontFamily: F, fontSize: 12, color: C.textSecondary, marginLeft: 8, letterSpacing: 1, textTransform: "uppercase" }}>{DAYS_FULL[mb]}</span>
                 </div>
-                <button onClick={() => addPost(dateKey)} style={{ width: 26, height: 26, borderRadius: "50%", border: "1px solid #D0D5DD", background: "#fff", cursor: "pointer", fontSize: 16, color: "#1A365D", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                <button onClick={() => addPost(dateKey)} style={{ width: 26, height: 26, borderRadius: "50%", border: "1px solid #D0D5DD", background: "#fff", cursor: "pointer", fontSize: 16, color: C.text, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
               </div>
-              {dayPosts.length === 0 && <div style={{ padding: 20, textAlign: "center", color: "#CCC", fontSize: 12, fontStyle: "italic", fontFamily: F }}>Aucun post prévu</div>}
+              {dayPosts.length === 0 && <div style={{ padding: 20, textAlign: "center", color: C.textTertiary, fontSize: 12, fontStyle: "italic", fontFamily: F }}>Aucun post prévu</div>}
               {dayPosts.map((post, idx) => (
                 <PostEditor key={idx} post={post} dateKey={dateKey} index={idx}
                   generating={generatingKey === `${dateKey}-${idx}`}
@@ -783,26 +813,26 @@ function HashtagBank() {
   const [copied, setCopied] = useState(null);
   return (
     <div style={{ ...cardStyle, padding: 20, marginTop: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: "#1A365D", letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 12 }}>Banque de hashtags</div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: C.text, letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 12 }}>Banque de hashtags</div>
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {ACCOUNTS.map(a => (
-          <button key={a.id} onClick={() => setSel(a.id)} style={{ padding: "6px 16px", borderRadius: 6, border: `1px solid ${a.color}`, background: sel === a.id ? a.color : "#fff", color: sel === a.id ? "#fff" : a.color, cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 600, letterSpacing: 0.5, transition: "all .15s" }}>{a.id}</button>
+          <button key={a.id} onClick={() => setSel(a.id)} style={{ padding: "6px 16px", borderRadius: 8, border: `1px solid ${a.color}`, background: sel === a.id ? a.color : "#fff", color: sel === a.id ? "#fff" : a.color, cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 600, letterSpacing: 0.5, transition: "all .15s" }}>{a.id}</button>
         ))}
       </div>
-      <div style={{ fontSize: 11, color: "#999", marginBottom: 12, fontFamily: F }}>{ACCOUNTS.find(a => a.id === sel)?.name}</div>
+      <div style={{ fontSize: 11, color: C.textSecondary, marginBottom: 12, fontFamily: F }}>{ACCOUNTS.find(a => a.id === sel)?.name}</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
         {Object.entries(bank).map(([cat, tags]) => (
-          <div key={cat} style={{ background: "#F7F9FC", borderRadius: 8, padding: 12 }}>
+          <div key={cat} style={{ background: C.surfaceSecondary, borderRadius: 10, padding: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: "#1A365D", fontFamily: F, letterSpacing: 0.5, textTransform: "uppercase" }}>{cat}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: C.text, fontFamily: F, letterSpacing: 0.5, textTransform: "uppercase" }}>{cat}</span>
               <button onClick={() => { navigator.clipboard.writeText(tags.join(" ")); setCopied(cat); setTimeout(() => setCopied(null), 1500); }}
-                style={{ fontSize: 9, padding: "2px 6px", borderRadius: 3, border: "1px solid #D0D5DD", background: copied === cat ? "#4CAF50" : "#fff", color: copied === cat ? "#fff" : "#999", cursor: "pointer", fontFamily: F, transition: "all .2s" }}>
+                style={{ fontSize: 9, padding: "2px 6px", borderRadius: 3, border: "1px solid #D0D5DD", background: copied === cat ? C.green : "#fff", color: copied === cat ? "#fff" : C.textSecondary, cursor: "pointer", fontFamily: F, transition: "all .2s" }}>
                 {copied === cat ? "Copié !" : "Copier tout"}
               </button>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
               {tags.map(tag => (
-                <span key={tag} onClick={() => navigator.clipboard.writeText(tag)} style={{ padding: "2px 8px", borderRadius: 4, background: "#fff", border: "1px solid #E0E0E0", fontSize: 11, color: "#555", cursor: "pointer", fontFamily: "monospace", transition: "all .1s" }} title="Cliquer pour copier">{tag}</span>
+                <span key={tag} onClick={() => navigator.clipboard.writeText(tag)} style={{ padding: "2px 8px", borderRadius: 6, background: "#fff", border: "1px solid #E0E0E0", fontSize: 11, color: "#555", cursor: "pointer", fontFamily: "monospace", transition: "all .1s" }} title="Cliquer pour copier">{tag}</span>
               ))}
             </div>
           </div>
@@ -841,13 +871,13 @@ function FeedPreview({ posts }) {
   };
 
   const typeColors = { Photo: "#B8860B", Carrousel: "#2E7D6F", Reel: "#8B3A62" };
-  const statusColors = { Brouillon: "#F5C542", "En cours": "#7BC67E", Validé: "#1B5E20", Programmé: "#E67E22", Publié: "#4CAF50" };
+  const statusColors = { Brouillon: "#F5C542", "En cours": "#7BC67E", Validé: "#1B5E20", Programmé: "#E67E22", Publié: C.green };
 
   return (
     <div style={{ marginTop: 16 }}>
       {/* Account selector */}
       <div style={{ ...cardStyle, padding: 16, marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "#1A365D", letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 12 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: C.text, letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 12 }}>
           Preview du feed Instagram
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -869,7 +899,7 @@ function FeedPreview({ posts }) {
           </div>
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, color: "#1A1A1A", fontFamily: F }}>{acc?.name}</div>
-            <div style={{ fontSize: 12, color: "#999", fontFamily: F, marginTop: 2 }}>{allPosts.length} post{allPosts.length !== 1 ? "s" : ""} planifié{allPosts.length !== 1 ? "s" : ""}</div>
+            <div style={{ fontSize: 12, color: C.textSecondary, fontFamily: F, marginTop: 2 }}>{allPosts.length} post{allPosts.length !== 1 ? "s" : ""} planifié{allPosts.length !== 1 ? "s" : ""}</div>
           </div>
         </div>
 
@@ -877,8 +907,8 @@ function FeedPreview({ posts }) {
         {allPosts.length === 0 ? (
           <div style={{ padding: 60, textAlign: "center" }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>📷</div>
-            <div style={{ fontSize: 14, color: "#999", fontFamily: F }}>Aucun post planifié pour {selectedAccount}</div>
-            <div style={{ fontSize: 12, color: "#CCC", fontFamily: F, marginTop: 4 }}>Créez des posts dans le calendrier pour les voir ici</div>
+            <div style={{ fontSize: 14, color: C.textSecondary, fontFamily: F }}>Aucun post planifié pour {selectedAccount}</div>
+            <div style={{ fontSize: 12, color: C.textTertiary, fontFamily: F, marginTop: 4 }}>Créez des posts dans le calendrier pour les voir ici</div>
           </div>
         ) : (
           <div>
@@ -915,7 +945,7 @@ function FeedPreview({ posts }) {
                 })}
                 {/* Fill empty cells in last row */}
                 {row.length < 3 && Array.from({ length: 3 - row.length }).map((_, i) => (
-                  <div key={`e-${i}`} style={{ aspectRatio: "1", background: "#F8F8F8" }} />
+                  <div key={`e-${i}`} style={{ aspectRatio: "1", background: C.surfaceSecondary }} />
                 ))}
               </div>
             ))}
@@ -946,19 +976,19 @@ function FeedPreview({ posts }) {
                 </div>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 13, fontFamily: F, color: "#1A1A1A" }}>{acc?.name}</div>
-                  <div style={{ fontSize: 11, color: "#999", fontFamily: F }}>{fmtDateFR(lightbox.dateKey)}</div>
+                  <div style={{ fontSize: 11, color: C.textSecondary, fontFamily: F }}>{fmtDateFR(lightbox.dateKey)}</div>
                 </div>
-                <button onClick={() => setLightbox(null)} style={{ marginLeft: "auto", background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#999" }}>×</button>
+                <button onClick={() => setLightbox(null)} style={{ marginLeft: "auto", background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.textSecondary }}>×</button>
               </div>
               <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-                <span style={{ padding: "2px 8px", borderRadius: 4, background: typeColors[lightbox.type] + "22", color: typeColors[lightbox.type], fontSize: 10, fontFamily: F, fontWeight: 600 }}>{lightbox.type}</span>
-                <span style={{ padding: "2px 8px", borderRadius: 4, background: statusColors[lightbox.status || "Brouillon"] + "22", color: statusColors[lightbox.status || "Brouillon"], fontSize: 10, fontFamily: F, fontWeight: 600 }}>{lightbox.status || "Brouillon"}</span>
+                <span style={{ padding: "2px 8px", borderRadius: 6, background: typeColors[lightbox.type] + "22", color: typeColors[lightbox.type], fontSize: 10, fontFamily: F, fontWeight: 600 }}>{lightbox.type}</span>
+                <span style={{ padding: "2px 8px", borderRadius: 6, background: statusColors[lightbox.status || "Brouillon"] + "22", color: statusColors[lightbox.status || "Brouillon"], fontSize: 10, fontFamily: F, fontWeight: 600 }}>{lightbox.status || "Brouillon"}</span>
               </div>
               {lightbox.subject && <div style={{ fontWeight: 600, fontSize: 13, color: "#1A1A1A", fontFamily: F, marginBottom: 8 }}>{lightbox.subject}</div>}
               {lightbox.caption && (
                 <div style={{ fontSize: 12, color: "#333", fontFamily: F, lineHeight: 1.6, whiteSpace: "pre-wrap", flex: 1 }}>{lightbox.caption}</div>
               )}
-              {!lightbox.caption && <div style={{ fontSize: 12, color: "#CCC", fontFamily: F, fontStyle: "italic" }}>Pas de caption</div>}
+              {!lightbox.caption && <div style={{ fontSize: 12, color: C.textTertiary, fontFamily: F, fontStyle: "italic" }}>Pas de caption</div>}
             </div>
           </div>
         </div>
@@ -977,14 +1007,14 @@ function Archive({ posts }) {
 
   if (sortedMonths.length === 0) return (
     <div style={{ ...cardStyle, padding: 30, marginTop: 16, textAlign: "center" }}>
-      <div style={{ color: "#CCC", fontSize: 13, fontFamily: F }}>Aucun historique pour le moment</div>
+      <div style={{ color: C.textTertiary, fontSize: 13, fontFamily: F }}>Aucun historique pour le moment</div>
       <div style={{ color: "#DDD", fontSize: 11, fontFamily: F, marginTop: 4 }}>Les mois avec des posts apparaîtront ici</div>
     </div>
   );
 
   return (
     <div style={{ ...cardStyle, padding: 20, marginTop: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: "#1A365D", letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 14 }}>Historique</div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: C.text, letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 14 }}>Historique</div>
       {sortedMonths.map(mk => {
         const [y, m] = mk.split("-").map(Number);
         const monthEntries = Object.entries(posts).filter(([k]) => k.startsWith(mk)).sort(([a], [b]) => a.localeCompare(b));
@@ -997,14 +1027,14 @@ function Archive({ posts }) {
 
         return (
           <div key={mk} style={{ marginBottom: 8 }}>
-            <button onClick={() => setExpanded(isExp ? null : mk)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: 8, border: "1px solid #E8E8E8", background: isExp ? "#F7F9FC" : "#fff", cursor: "pointer", fontFamily: F }}>
+            <button onClick={() => setExpanded(isExp ? null : mk)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: 10, border: "1px solid #E8E8E8", background: isExp ? C.surfaceSecondary : "#fff", cursor: "pointer", fontFamily: F }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ fontSize: 14, fontWeight: 500, color: "#1A365D" }}>{MONTHS_FR[m - 1]} {y}</span>
-                <span style={{ fontSize: 12, color: "#999" }}>{totalPosts} posts</span>
+                <span style={{ fontSize: 14, fontWeight: 500, color: C.text }}>{MONTHS_FR[m - 1]} {y}</span>
+                <span style={{ fontSize: 12, color: C.textSecondary }}>{totalPosts} posts</span>
               </div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 {ACCOUNTS.map(a => byAcc[a.id] > 0 ? <Badge key={a.id} text={`${a.id}: ${byAcc[a.id]}`} bg={a.color} fg="#fff" /> : null)}
-                <span style={{ fontSize: 14, color: "#999", marginLeft: 8 }}>{isExp ? "−" : "+"}</span>
+                <span style={{ fontSize: 14, color: C.textSecondary, marginLeft: 8 }}>{isExp ? "−" : "+"}</span>
               </div>
             </button>
             {isExp && (
@@ -1017,11 +1047,11 @@ function Archive({ posts }) {
                 {monthEntries.map(([dateKey, dayPosts]) => (
                   dayPosts.map((p, idx) => (
                     <div key={`${dateKey}-${idx}`} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0", borderBottom: "1px solid #F5F5F5", fontSize: 12, fontFamily: F }}>
-                      <span style={{ color: "#999", minWidth: 60 }}>{fmtDateFR(dateKey)}</span>
+                      <span style={{ color: C.textSecondary, minWidth: 60 }}>{fmtDateFR(dateKey)}</span>
                       <Badge text={p.account} bg={ACCOUNTS.find(a => a.id === p.account)?.color} fg="#fff" />
                       <Badge text={p.type} fg={p.type === "Photo" ? "#B8860B" : p.type === "Reel" ? "#8B3A62" : "#2E7D6F"} border={p.type === "Photo" ? "#B8860B" : p.type === "Reel" ? "#8B3A62" : "#2E7D6F"} />
                       <span style={{ color: "#333", flex: 1 }}>{p.subject || "—"}</span>
-                      <span style={{ color: "#999", fontSize: 10 }}>{p.status || "Brouillon"}</span>
+                      <span style={{ color: C.textSecondary, fontSize: 10 }}>{p.status || "Brouillon"}</span>
                     </div>
                   ))
                 ))}
@@ -1085,29 +1115,29 @@ function Library({ library, setLibrary }) {
 
   return (
     <div style={{ ...cardStyle, padding: 20, marginTop: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: "#1A365D", letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 16 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: C.text, letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 16 }}>
         Librairie — {library.length} fichier{library.length !== 1 ? "s" : ""}
       </div>
 
       {/* Upload zone */}
       <div
         onClick={() => !uploading && fileInputRef.current?.click()}
-        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = "#1A365D"; }}
-        onDragLeave={e => { e.currentTarget.style.borderColor = "#D0D5DD"; }}
-        onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = "#D0D5DD"; handleUpload(Array.from(e.dataTransfer.files)); }}
-        style={{ border: "2px dashed #D0D5DD", borderRadius: 10, padding: "22px 20px", textAlign: "center", cursor: uploading ? "default" : "pointer", background: "#FAFBFC", marginBottom: 16, transition: "all .2s" }}>
+        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = C.text; }}
+        onDragLeave={e => { e.currentTarget.style.borderColor = C.border; }}
+        onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = C.border; handleUpload(Array.from(e.dataTransfer.files)); }}
+        style={{ border: "2px dashed #D0D5DD", borderRadius: 10, padding: "22px 20px", textAlign: "center", cursor: uploading ? "default" : "pointer", background: C.surfaceSecondary, marginBottom: 16, transition: "all .2s" }}>
         {uploading ? (
           <div>
-            <div style={{ fontSize: 13, color: "#1A365D", fontFamily: F, marginBottom: 8 }}>Upload en cours... {progress}%</div>
-            <div style={{ height: 6, borderRadius: 3, background: "#E8E8E8", overflow: "hidden", maxWidth: 300, margin: "0 auto" }}>
-              <div style={{ height: "100%", width: `${progress}%`, background: "#1A365D", borderRadius: 3, transition: "width .3s" }} />
+            <div style={{ fontSize: 13, color: C.text, fontFamily: F, marginBottom: 8 }}>Upload en cours... {progress}%</div>
+            <div style={{ height: 6, borderRadius: 3, background: C.border, overflow: "hidden", maxWidth: 300, margin: "0 auto" }}>
+              <div style={{ height: "100%", width: `${progress}%`, background: C.text, borderRadius: 3, transition: "width .3s" }} />
             </div>
           </div>
         ) : (
           <>
             <div style={{ fontSize: 24, marginBottom: 4 }}>📁</div>
-            <div style={{ fontSize: 13, color: "#1A365D", fontFamily: F, fontWeight: 500 }}>Cliquer ou glisser-déposer des images</div>
-            <div style={{ fontSize: 11, color: "#999", fontFamily: F, marginTop: 2 }}>JPG, PNG, WEBP, GIF, MP4 — plusieurs fichiers acceptés</div>
+            <div style={{ fontSize: 13, color: C.text, fontFamily: F, fontWeight: 500 }}>Cliquer ou glisser-déposer des images</div>
+            <div style={{ fontSize: 11, color: C.textSecondary, fontFamily: F, marginTop: 2 }}>JPG, PNG, WEBP, GIF, MP4 — plusieurs fichiers acceptés</div>
           </>
         )}
       </div>
@@ -1118,10 +1148,10 @@ function Library({ library, setLibrary }) {
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher par nom..." style={{ ...inputStyle, marginBottom: 16 }} />
 
       {/* Grid */}
-      {filtered.length === 0 && <div style={{ textAlign: "center", color: "#CCC", padding: 40, fontSize: 13, fontFamily: F }}>Aucune image dans la librairie</div>}
+      {filtered.length === 0 && <div style={{ textAlign: "center", color: C.textTertiary, padding: 40, fontSize: 13, fontFamily: F }}>Aucune image dans la librairie</div>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
         {filtered.map(item => (
-          <div key={item.id} style={{ borderRadius: 8, overflow: "hidden", border: "1px solid #E8E8E8", background: "#FAFAFA", position: "relative" }}>
+          <div key={item.id} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #E8E8E8", background: C.surfaceSecondary, position: "relative" }}>
             {item.fileType?.startsWith("image/") ? (
               <img src={item.url} alt={item.name} onClick={() => setLightbox(item)}
                 style={{ width: "100%", aspectRatio: "1", objectFit: "cover", cursor: "pointer", display: "block" }} />
@@ -1141,7 +1171,7 @@ function Library({ library, setLibrary }) {
       {lightbox && (
         <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div onClick={e => e.stopPropagation()} style={{ position: "relative", maxWidth: "90vw" }}>
-            <img src={lightbox.url} style={{ maxWidth: "85vw", maxHeight: "80vh", objectFit: "contain", borderRadius: 8, display: "block" }} />
+            <img src={lightbox.url} style={{ maxWidth: "85vw", maxHeight: "80vh", objectFit: "contain", borderRadius: 10, display: "block" }} />
             <div style={{ marginTop: 8, textAlign: "center", color: "#fff", fontSize: 12, fontFamily: F }}>{lightbox.name}</div>
             <button onClick={() => setLightbox(null)} style={{ position: "absolute", top: -14, right: -14, width: 28, height: 28, borderRadius: "50%", border: "none", background: "#fff", color: "#333", cursor: "pointer", fontSize: 15, fontWeight: 700 }}>×</button>
           </div>
@@ -1160,18 +1190,18 @@ function LibraryPicker({ onSelect, onClose }) {
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 12, padding: 20, width: "min(600px, 95vw)", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#1A365D", fontFamily: F }}>Choisir depuis la librairie</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#999" }}>×</button>
+          <span style={{ fontSize: 13, fontWeight: 600, color: C.text, fontFamily: F }}>Choisir depuis la librairie</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: C.textSecondary }}>×</button>
         </div>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher..." style={{ ...inputStyle, marginBottom: 12 }} />
         <div style={{ overflowY: "auto", flex: 1 }}>
-          {filtered.length === 0 && <div style={{ textAlign: "center", color: "#CCC", padding: 30, fontSize: 13, fontFamily: F }}>Aucun fichier dans la librairie</div>}
+          {filtered.length === 0 && <div style={{ textAlign: "center", color: C.textTertiary, padding: 30, fontSize: 13, fontFamily: F }}>Aucun fichier dans la librairie</div>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
             {filtered.map(item => (
               <div key={item.id} onClick={() => { onSelect(item); onClose(); }}
-                style={{ borderRadius: 8, overflow: "hidden", border: "1px solid #E8E8E8", cursor: "pointer", background: "#FAFAFA", transition: "border-color .15s" }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = "#1A365D"}
-                onMouseLeave={e => e.currentTarget.style.borderColor = "#E8E8E8"}>
+                style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #E8E8E8", cursor: "pointer", background: C.surfaceSecondary, transition: "border-color .15s" }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = C.text}
+                onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
                 {item.fileType?.startsWith("image/") ? (
                   <img src={item.url} alt={item.name} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
                 ) : (
@@ -1193,12 +1223,12 @@ function Stats({ posts }) {
   const all = Object.values(posts).flat();
   const byAcc = {}; ACCOUNTS.forEach(a => { byAcc[a.id] = 0; }); all.forEach(p => { if (p.account && byAcc[p.account] !== undefined) byAcc[p.account]++; });
   const byType = { Photo: 0, Carrousel: 0, Reel: 0 }; all.forEach(p => { if (p.type && byType[p.type] !== undefined) byType[p.type]++; });
-  const box = { background: "#fff", borderRadius: 8, border: "1px solid #E8E8E8", padding: "8px 16px", textAlign: "center" };
+  const box = { background: C.surface, borderRadius: 12, border: `1px solid ${C.border}`, padding: "10px 16px", textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" };
   return (
-    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-      <div style={box}><div style={{ fontSize: 10, color: "#999", letterSpacing: 1, textTransform: "uppercase", fontFamily: F }}>Total</div><div style={{ fontSize: 22, fontWeight: 300, color: "#1A365D", fontFamily: F }}>{all.length}</div></div>
-      {ACCOUNTS.map(a => <div key={a.id} style={{ ...box, borderBottom: `2px solid ${a.color}` }}><div style={{ fontSize: 10, color: "#999", letterSpacing: 1, textTransform: "uppercase", fontFamily: F }}>{a.id}</div><div style={{ fontSize: 22, fontWeight: 300, color: "#1A365D", fontFamily: F }}>{byAcc[a.id]}</div></div>)}
-      {POST_TYPES.map(t => <div key={t} style={box}><div style={{ fontSize: 10, color: "#999", letterSpacing: 1, textTransform: "uppercase", fontFamily: F }}>{t}s</div><div style={{ fontSize: 22, fontWeight: 300, color: "#1A365D", fontFamily: F }}>{byType[t]}</div></div>)}
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+      <div style={box}><div style={{ fontSize: 10, color: C.textTertiary, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: F, fontWeight: 600 }}>Total</div><div style={{ fontSize: 22, fontWeight: 700, color: C.text, fontFamily: F }}>{all.length}</div></div>
+      {ACCOUNTS.map(a => <div key={a.id} style={{ ...box, borderBottom: `2px solid ${a.color}` }}><div style={{ fontSize: 10, color: C.textTertiary, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: F, fontWeight: 600 }}>{a.id}</div><div style={{ fontSize: 22, fontWeight: 700, color: C.text, fontFamily: F }}>{byAcc[a.id]}</div></div>)}
+      {POST_TYPES.map(t => <div key={t} style={box}><div style={{ fontSize: 10, color: C.textTertiary, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: F, fontWeight: 600 }}>{t}s</div><div style={{ fontSize: 22, fontWeight: 700, color: C.text, fontFamily: F }}>{byType[t]}</div></div>)}
     </div>
   );
 }
@@ -1363,22 +1393,40 @@ export default function App() {
 
   return (
     <LibraryContext.Provider value={{ library, setLibrary }}>
-    <div style={{ fontFamily: F, background: "#F5F6F8", minHeight: "100vh", padding: "20px 16px" }}>
-      <div style={{ textAlign: "center", marginBottom: 20 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 300, color: "#1A365D", margin: "4px 0 0", letterSpacing: 1 }}>Calendrier Éditorial</h1>
-        <div style={{ fontSize: 11, color: "#BBB", marginTop: 4, letterSpacing: 2 }}>APG · CSM · HDCER · BB</div>
+    <div style={{ fontFamily: F, background: C.bg, minHeight: "100vh", padding: "28px 20px" }}>
+
+      {/* Header */}
+      <div style={{ textAlign: "center", marginBottom: 28 }}>
+        <h1 style={{ fontSize: 32, fontWeight: 700, color: C.text, margin: 0, letterSpacing: -0.5 }}>
+          Calendrier Éditorial
+        </h1>
+        <div style={{ fontSize: 12, color: C.textTertiary, marginTop: 5, letterSpacing: 1.5, fontWeight: 500 }}>
+          APG · CSM · HDCER · BB
+        </div>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 20 }}>
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setView(t.id)} style={{ padding: "8px 20px", borderRadius: 8, border: "1px solid #D0D5DD", background: view === t.id ? "#1A365D" : "#fff", color: view === t.id ? "#fff" : "#1A365D", cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 500, letterSpacing: 0.5, transition: "all .15s" }}>{t.label}</button>
-        ))}
+      {/* Tabs — pill switcher */}
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+        <div style={{ display: "inline-flex", background: "rgba(118,118,128,0.12)", borderRadius: 12, padding: 3, gap: 2 }}>
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setView(t.id)} style={{
+              padding: "7px 18px", borderRadius: 10,
+              border: "none",
+              background: view === t.id ? C.surface : "transparent",
+              color: view === t.id ? C.text : C.textSecondary,
+              cursor: "pointer", fontSize: 13, fontFamily: F,
+              fontWeight: view === t.id ? 600 : 400,
+              transition: "all .18s",
+              boxShadow: view === t.id ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
+            }}>{t.label}</button>
+          ))}
+        </div>
       </div>
 
       {(view === "calendar" || view === "recap") && (
-        <div style={{ display: "flex", alignItems: "center", gap: 20, justifyContent: "center", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, justifyContent: "center", marginBottom: 20 }}>
           <button onClick={prevMonth} style={navBtn}>‹</button>
-          <h2 style={{ fontFamily: F, fontSize: 24, fontWeight: 300, color: "#1A365D", letterSpacing: 2, margin: 0, minWidth: 240, textAlign: "center" }}>{MONTHS_FR[month].toUpperCase()} {year}</h2>
+          <h2 style={{ fontFamily: F, fontSize: 22, fontWeight: 700, color: C.text, letterSpacing: -0.3, margin: 0, minWidth: 220, textAlign: "center" }}>{MONTHS_FR[month]} {year}</h2>
           <button onClick={nextMonth} style={navBtn}>›</button>
         </div>
       )}
