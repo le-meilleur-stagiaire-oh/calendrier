@@ -1770,6 +1770,216 @@ function LibraryPicker({ onSelect, onClose, accountHint }) {
   );
 }
 
+// ── Guide ─────────────────────────────────────────────────────────────────────
+function Guide() {
+  const [open, setOpen] = useState(null);
+
+  const sections = [
+    {
+      id: "start",
+      emoji: "🚀",
+      title: "Par où commencer ?",
+      color: C.blue,
+      steps: [
+        { label: "1. Configure les établissements", desc: "Dans l'onglet Calendrier, le panneau en haut te permet de définir pour chaque compte (APG, CSM, HDCER, BB) : le statut ouvert/fermé (bouton vert/rouge), le nombre de posts souhaités par semaine, et les dates de fermeture ou d'ouverture à titre indicatif." },
+        { label: "2. Upload tes images dans la Librairie", desc: "Va dans l'onglet Librairie et uploade tes photos par établissement. Tu peux glisser-déposer plusieurs images à la fois. Chaque image est stockée sur Cloudinary et associée à un compte." },
+        { label: "3. Génère le planning", desc: "De retour dans le Calendrier, clique sur \"Générer le planning\". Le système répartit automatiquement les posts sur le mois selon le nombre de posts/semaine défini, en tenant compte des semaines coupées en début et fin de mois." },
+        { label: "4. Complète les fiches", desc: "Clique sur un jour du calendrier pour ouvrir le panneau de la journée. Tu peux y éditer chaque fiche : choisir l'image, générer la caption avec l'IA, modifier le sujet, etc." },
+        { label: "5. Valide et exporte", desc: "Dans l'onglet Récap, tu peux voir tous les posts, changer les statuts, copier les captions et exporter un CSV pour programmer via Later ou Buffer." },
+      ]
+    },
+    {
+      id: "calendar",
+      emoji: "📅",
+      title: "Calendrier",
+      color: "#5856D6",
+      steps: [
+        { label: "Naviguer entre les mois", desc: "Utilise les flèches ‹ › de part et d'autre du nom du mois pour passer au mois précédent ou suivant." },
+        { label: "Cliquer sur un jour", desc: "Un clic sur n'importe quel jour ouvre le panneau de cette journée en bas. Tu peux y voir, éditer, ajouter ou supprimer des posts. Recliquer sur le même jour ferme le panneau." },
+        { label: "Déplacer un post (drag & drop)", desc: "Chaque fiche dans le calendrier est déplaçable. Attrape-la et glisse-la vers un autre jour. La case cible se surligne en bleu pendant le survol." },
+        { label: "Miniature dans le calendrier", desc: "Si un post a une image associée (uploadée ou issue de la librairie), une miniature apparaît directement dans la case du calendrier pour avoir une vision rapide du contenu visuel." },
+        { label: "Générer le planning automatique", desc: "Le bouton \"Générer le planning\" dans le panneau des établissements répartit les posts sur le mois en respectant le rythme posts/semaine. Les semaines coupées sont proratisées : si le mois commence un mercredi, la première semaine ne reçoit que 5/7 des posts prévus." },
+        { label: "Effacer le planning", desc: "Le bouton rouge \"Effacer le planning\" supprime tous les posts du mois en cours. Les autres mois ne sont pas affectés." },
+      ]
+    },
+    {
+      id: "posts",
+      emoji: "✏️",
+      title: "Fiches post",
+      color: "#FF9500",
+      steps: [
+        { label: "Créer un post", desc: "Dans le panneau d'un jour (clic sur une date), clique sur \"+  Ajouter\". Une nouvelle fiche vierge apparaît. Choisis le compte, le type (Photo / Carrousel / Reel) et le statut." },
+        { label: "Générer un sujet aléatoire", desc: "Une fois le compte sélectionné, le bouton \"Générer un sujet\" propose aléatoirement un sujet issu de la banque de sujets propre à chaque établissement." },
+        { label: "Ajouter une image", desc: "Deux options : \"Uploader un média\" pour charger un fichier depuis ton ordinateur, ou \"Choisir depuis la librairie\" pour utiliser une image déjà uploadée. Dans la librairie, tu peux filtrer par compte et par nom." },
+        { label: "Analyser l'image avec l'IA ✨", desc: "Dès qu'une image est présente et qu'un compte est sélectionné, le bouton \"✨ Analyser l'image et générer la caption\" apparaît. En cliquant, l'IA (Llama 4 Scout via Groq) analyse la photo, identifie la scène, propose un sujet adapté au compte et génère une caption complète EN + FR + hashtags." },
+        { label: "Générer / Regénérer la caption", desc: "Si tu as rempli le sujet manuellement, la caption se génère automatiquement quand tu quittes le champ. Tu peux la regénérer à tout moment avec le bouton \"Regénérer\"." },
+        { label: "Copier la caption", desc: "Le bouton \"Copier la caption\" en bas de la fiche copie tout le texte dans le presse-papier, prêt à coller dans Meta Business Suite, Later ou Buffer." },
+        { label: "Dupliquer un post", desc: "Le bouton \"Dupliquer\" permet de copier un post vers une autre date, avec possibilité de changer le compte. Pratique pour les contenus récurrents." },
+        { label: "Changer le statut", desc: "5 statuts disponibles : Brouillon (jaune) → En cours (bleu) → Validé (vert foncé) → Programmé (orange) → Publié (vert). Le statut est visible directement dans la case du calendrier." },
+      ]
+    },
+    {
+      id: "library",
+      emoji: "📁",
+      title: "Librairie",
+      color: "#34C759",
+      steps: [
+        { label: "Uploader des images", desc: "Glisse-dépose ou clique pour uploader. Sélectionne d'abord le compte concerné dans le menu \"Uploader pour :\" pour associer les images directement au bon établissement. Plusieurs fichiers sont acceptés en même temps." },
+        { label: "Filtrer par établissement", desc: "Les onglets en haut (Tous / APG / CSM / HDCER / BB) filtrent les images affichées. Le compteur entre parenthèses indique le nombre d'images par compte." },
+        { label: "Rechercher une image", desc: "Le champ de recherche filtre les images par nom de fichier en temps réel." },
+        { label: "Voir une image en grand", desc: "Clique sur n'importe quelle image pour l'afficher en plein écran (lightbox). Clique en dehors pour fermer." },
+        { label: "Supprimer une image", desc: "Le bouton × en haut à droite de chaque image la supprime de Firestore. L'image reste sur Cloudinary mais ne sera plus visible dans l'app." },
+        { label: "Génération batch ✨", desc: "Le bouton \"✨ Génération batch\" ouvre un mode spécial pour générer plusieurs posts d'un coup. Voir la section dédiée ci-dessous." },
+      ]
+    },
+    {
+      id: "batch",
+      emoji: "⚡",
+      title: "Génération batch",
+      color: C.indigo,
+      steps: [
+        { label: "Ouvrir le mode batch", desc: "Dans l'onglet Librairie, clique sur \"✨ Génération batch\" en haut à droite." },
+        { label: "Choisir le compte et le mois", desc: "Sélectionne le compte pour lequel tu veux générer (APG, CSM, HDCER ou BB). Le mois est celui actuellement affiché dans le calendrier." },
+        { label: "Sélectionner les images", desc: "La grille à gauche affiche les images de la librairie pour ce compte. Clique sur les images pour les sélectionner (elles s'entourent d'un bord bleu). Les images déjà dans un groupe apparaissent en vert." },
+        { label: "Créer des groupes", desc: "Une fois ta sélection faite, clique sur le bouton \"Créer un groupe\". 1 image = Photo, 2+ images = Carrousel automatiquement. Le groupe apparaît à droite avec ses miniatures." },
+        { label: "Changer le type d'un groupe", desc: "Pour chaque groupe, tu peux modifier le type (Photo / Carrousel / Reel) via les boutons dans l'en-tête du groupe." },
+        { label: "Supprimer un groupe", desc: "Le bouton × dans l'en-tête d'un groupe le supprime. Les images redeviennent sélectionnables." },
+        { label: "Lancer la génération", desc: "Clique sur \"✨ Générer X posts avec l'IA\". Pour chaque groupe, l'IA analyse la première image et génère un sujet + une caption complète. Les posts sont placés automatiquement sur les jours disponibles à partir de demain, en respectant le rythme posts/semaine défini pour ce compte, sans chevaucher les posts existants." },
+        { label: "Résultat", desc: "Une fois terminé, les posts apparaissent dans le calendrier avec leurs images, sujets et captions. Tu peux les affiner individuellement en cliquant sur le jour concerné." },
+      ]
+    },
+    {
+      id: "preview",
+      emoji: "📱",
+      title: "Preview du feed",
+      color: "#FF3B30",
+      steps: [
+        { label: "Choisir un compte", desc: "Les 4 boutons en haut permettent de switcher entre les comptes. La vue simule le feed Instagram de ce compte avec les posts planifiés." },
+        { label: "Logique Instagram", desc: "Les posts sont affichés du plus récent au plus ancien, de gauche à droite sur chaque ligne (3 colonnes), exactement comme Instagram. Le post le plus récent est en haut à gauche." },
+        { label: "Icônes de type", desc: "❏ apparaît sur les Carrousels, ▶ sur les Reels. Les Photos n'ont pas d'icône, comme sur Instagram." },
+        { label: "Hover pour les détails", desc: "Sur ordinateur, passer la souris sur une image affiche le sujet, la date et un point de couleur indiquant le statut." },
+        { label: "Clic pour le détail complet", desc: "Cliquer sur un post ouvre une modale style Instagram avec l'image à gauche et les détails (sujet, caption, type, statut) à droite." },
+      ]
+    },
+    {
+      id: "recap",
+      emoji: "📊",
+      title: "Récap & Export",
+      color: "#5AC8FA",
+      steps: [
+        { label: "Vue récapitulative", desc: "L'onglet Récap affiche un résumé par compte : nombre de posts, objectif atteint ou non, répartition Photo/Carrousel/Reel, et alerte si aucun Reel n'est planifié ce mois-ci." },
+        { label: "Détection des doublons", desc: "Si un compte a deux posts le même jour, une alerte orange apparaît en bas du récap." },
+        { label: "Vue \"Prêt à programmer\"", desc: "Le bouton \"📋 Voir les posts prêts à programmer\" ouvre une liste de tous les posts du mois avec image + caption + heure suggérée. Tu peux filtrer par compte et copier la caption de chaque post en un clic." },
+        { label: "Export CSV", desc: "Le bouton \"↓ Exporter CSV\" génère un fichier CSV par compte avec : date, heure, type, statut, sujet, caption, URL image, crédits. Compatible avec l'import direct dans Later et Buffer." },
+        { label: "URLs des images", desc: "Depuis la vue \"Prêt à programmer\", le bouton \"Ouvrir l'image ↗\" ouvre directement l'image sur Cloudinary dans un nouvel onglet, pour la télécharger ou la copier." },
+        { label: "Horaires suggérés", desc: "Chaque post affiche un horaire de publication recommandé selon le compte et le jour (semaine vs weekend), basé sur les meilleures pratiques pour le secteur hôtelier de luxe." },
+      ]
+    },
+    {
+      id: "hashtags",
+      emoji: "#️⃣",
+      title: "Hashtags",
+      color: "#FF9500",
+      steps: [
+        { label: "Banque par compte", desc: "Chaque établissement a sa propre banque de hashtags organisée par catégories. Sélectionne le compte avec les boutons en haut." },
+        { label: "Copier un hashtag", desc: "Clique sur n'importe quel hashtag individuel pour le copier dans le presse-papier." },
+        { label: "Copier une catégorie entière", desc: "Le bouton \"Copier tout\" à droite du nom de catégorie copie tous les hashtags de cette catégorie en une fois." },
+        { label: "Hashtags obligatoires", desc: "Certains hashtags sont automatiquement inclus dans toutes les captions générées (ex: #lapogeecourchevel, #oetkerhotels). Ils ne peuvent pas être supprimés de la génération." },
+      ]
+    },
+    {
+      id: "archive",
+      emoji: "🗂️",
+      title: "Archive",
+      color: C.textSecondary,
+      steps: [
+        { label: "Historique des mois", desc: "L'onglet Archive liste tous les mois pour lesquels des posts ont été créés, du plus récent au plus ancien." },
+        { label: "Développer un mois", desc: "Clique sur un mois pour l'ouvrir et voir le détail : répartition par compte, par type, et la liste de tous les posts avec leur date, type et statut." },
+        { label: "Retrouver un contenu", desc: "L'archive est utile pour retrouver rapidement un post passé, vérifier ce qui avait été publié à une date donnée, ou s'en inspirer pour de nouveaux posts." },
+      ]
+    },
+  ];
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      {/* Header card */}
+      <div style={{ ...cardStyle, padding: 28, marginBottom: 16, background: `linear-gradient(135deg, ${C.blue}08, ${C.indigo}08)` }}>
+        <div style={{ fontSize: 26, fontWeight: 700, color: C.text, fontFamily: F, marginBottom: 8, letterSpacing: -0.5 }}>
+          📖 Guide d'utilisation
+        </div>
+        <div style={{ fontSize: 14, color: C.textSecondary, fontFamily: F, lineHeight: 1.6, maxWidth: 600 }}>
+          Bienvenue dans le Calendrier Éditorial pour L'Apogée, Château Saint-Martin, Hôtel du Cap-Eden-Roc et Beefbar. Ce guide explique toutes les fonctionnalités disponibles et comment les utiliser efficacement.
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+          {sections.map(s => (
+            <button key={s.id} onClick={() => setOpen(open === s.id ? null : s.id)}
+              style={{ padding: "6px 14px", borderRadius: 20, border: `1.5px solid ${s.color}`, background: open === s.id ? s.color : "transparent", color: open === s.id ? "#fff" : s.color, cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 600, transition: "all .18s" }}>
+              {s.emoji} {s.title}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Sections */}
+      {sections.map(s => (
+        <div key={s.id} style={{ ...cardStyle, marginBottom: 10, overflow: "visible" }}>
+          {/* Section header */}
+          <button onClick={() => setOpen(open === s.id ? null : s.id)}
+            style={{ width: "100%", padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: `${s.color}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
+              {s.emoji}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.text, fontFamily: F }}>{s.title}</div>
+              <div style={{ fontSize: 12, color: C.textSecondary, fontFamily: F, marginTop: 1 }}>{s.steps.length} fonctionnalité{s.steps.length > 1 ? "s" : ""}</div>
+            </div>
+            <div style={{ fontSize: 18, color: C.textTertiary, transform: open === s.id ? "rotate(90deg)" : "rotate(0)", transition: "transform .2s" }}>›</div>
+          </button>
+
+          {/* Section content */}
+          {open === s.id && (
+            <div style={{ padding: "0 20px 20px", borderTop: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 0, marginTop: 12 }}>
+                {s.steps.map((step, i) => (
+                  <div key={i} style={{ display: "flex", gap: 16, padding: "12px 0", borderBottom: i < s.steps.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${s.color}18`, border: `1.5px solid ${s.color}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: s.color, fontFamily: F }}>{i + 1}</span>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: C.text, fontFamily: F, marginBottom: 4 }}>{step.label}</div>
+                      <div style={{ fontSize: 13, color: C.textSecondary, fontFamily: F, lineHeight: 1.6 }}>{step.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* Tips card */}
+      <div style={{ ...cardStyle, padding: 20, marginTop: 6, background: `${C.green}06`, border: `1px solid ${C.green}30` }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.text, fontFamily: F, marginBottom: 12 }}>💡 Conseils & bonnes pratiques</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[
+            { tip: "Commence toujours par uploader tes images dans la Librairie avant de créer les posts — ça te permet d'utiliser la génération batch et l'analyse IA directement." },
+            { tip: "La génération batch est idéale en début de mois : uploade toutes tes photos, groupe-les, et génère en une fois. Tu n'as plus qu'à relire et ajuster les captions." },
+            { tip: "Utilise le statut \"Validé\" pour marquer les posts approuvés par l'équipe, et \"Programmé\" une fois planifiés dans Meta Business Suite ou Later." },
+            { tip: "Le CSV exporté est compatible avec l'import automatique de Later et Buffer. La colonne \"Image URL\" pointe directement vers l'image sur Cloudinary." },
+            { tip: "Pour les Reels, uploade une image de couverture dans la librairie et utilise-la comme média principal dans la fiche — c'est cette image qui apparaît dans le feed Instagram." },
+            { tip: "L'IA génère mieux les captions quand l'image est nette et le sujet du compte bien défini. Pour des résultats optimaux, donne une image claire avec un sujet central évident." },
+          ].map((t, i) => (
+            <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "8px 12px", background: C.surface, borderRadius: 10, border: `1px solid ${C.border}` }}>
+              <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>✓</span>
+              <span style={{ fontSize: 13, color: C.textSecondary, fontFamily: F, lineHeight: 1.5 }}>{t.tip}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Stats({ posts }) {
   const all = Object.values(posts).flat();
   const byAcc = {}; ACCOUNTS.forEach(a => { byAcc[a.id] = 0; }); all.forEach(p => { if (p.account && byAcc[p.account] !== undefined) byAcc[p.account]++; });
@@ -1940,7 +2150,7 @@ export default function App() {
     setPosts(newPosts);
   };
 
-  const tabs = [{ id: "calendar", label: "Calendrier" }, { id: "preview", label: "Preview" }, { id: "recap", label: "Récap" }, { id: "hashtags", label: "Hashtags" }, { id: "archive", label: "Archive" }, { id: "library", label: "Librairie" }];
+  const tabs = [{ id: "calendar", label: "Calendrier" }, { id: "preview", label: "Preview" }, { id: "recap", label: "Récap" }, { id: "hashtags", label: "Hashtags" }, { id: "archive", label: "Archive" }, { id: "library", label: "Librairie" }, { id: "guide", label: "📖 Guide" }];
 
   return (
     <LibraryContext.Provider value={{ library, setLibrary }}>
@@ -2030,6 +2240,8 @@ export default function App() {
       {view === "archive" && <Archive posts={posts} />}
 
       {view === "library" && <Library library={library} setLibrary={setLibrary} posts={posts} setPosts={setPosts} year={year} month={month} accountSettings={accountSettings} />}
+
+      {view === "guide" && <Guide />}
     </div>
     </LibraryContext.Provider>
   );
