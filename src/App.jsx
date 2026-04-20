@@ -1218,7 +1218,8 @@ export default function App() {
   const openStatus = Object.fromEntries(ACCOUNTS.map(a => [a.id, accountSettings[a.id]?.isOpen !== false]));
   const [selectedDay, setSelectedDay] = useState(null);
   const [view, setView] = useState("calendar");
-  const [library, setLibrary] = useState([]); // [{ id, url, name, uploadedAt }]
+  const [library, setLibrary] = useState([]);
+  const [loaded, setLoaded] = useState(false);
   const skipSync = useRef(false);
 
   // Load library images from Firestore
