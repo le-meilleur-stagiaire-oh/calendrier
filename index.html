@@ -5,8 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Calendrier Éditorial</title>
     <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: system-ui, -apple-system, 'Helvetica Neue', Helvetica, sans-serif; background: #F5F6F8; }
+      *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+      html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+      body { font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif; background: #F2F2F7; }
+      input, select, textarea, button { font-family: inherit; }
+      input:focus, select:focus, textarea:focus { border-color: #007AFF !important; box-shadow: 0 0 0 3px rgba(0,122,255,0.12) !important; }
+      button { transition: opacity .15s, transform .1s; }
+      button:active { opacity: 0.75; transform: scale(0.97); }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 10px; }
+      ::selection { background: rgba(0,122,255,0.2); }
     </style>
   </head>
   <body>
