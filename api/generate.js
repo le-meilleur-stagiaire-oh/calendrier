@@ -10,8 +10,43 @@ export default async function handler(req, res) {
   if (!apiKey) return res.status(500).json({ text: '', error: 'GROQ_API_KEY not configured' });
 
   try {
-    const { prompt } = req.body;
+    const { prompt, imageUrl, imageBase64, mode } = req.body;
 
+    // ── Vision mode: analyze image + generate subject & caption ──────────────
+    if (mode === 'vision') {
+      const imageContent = imageBase64
+        ? { type: 'image_url', image_url: { url: imageBase64 } }
+        : { type: 'image_url', image_url: { url: imageUrl } };
+
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          messages: [{
+            role: 'user',
+            content: [
+              imageContent,
+              { type: 'text', text: prompt },
+            ],
+          }],
+          max_tokens: 1200,
+          temperature: 0.7,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return res.status(200).json({ text: '', error: data?.error?.message || 'Vision API error' });
+      }
+      const text = data?.choices?.[0]?.message?.content || '';
+      return res.status(200).json({ text: text.trim() });
+    }
+
+    // ── Standard text mode: generate caption from prompt ────────────────────
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -27,13 +62,12 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
-
     if (!response.ok) {
       return res.status(200).json({ text: '', error: data?.error?.message || 'API error', status: response.status });
     }
-
     const text = data?.choices?.[0]?.message?.content || '';
     return res.status(200).json({ text: text.trim() });
+
   } catch (error) {
     return res.status(200).json({ text: '', error: error.message });
   }
