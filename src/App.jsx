@@ -24,12 +24,10 @@ const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET |
 // Library context — shared across PostEditor instances
 const LibraryContext = createContext({ library: [], setLibrary: () => {} });
 
-const F = "system-ui, -apple-system, 'Helvetica Neue', Helvetica, sans-serif";
-
 const ACCOUNTS = [
   { id: "APG", name: "L'Apogée Courchevel", color: "#7B2D3B", light: "#F5E6E9" },
   { id: "CSM", name: "Château Saint-Martin & Spa", color: "#D4782F", light: "#FDF0E5" },
-  { id: "HDCER", name: "Hôtel du Cap-Eden-Roc", color: C.teal, light: "#E5F2FA" },
+  { id: "HDCER", name: "Hôtel du Cap-Eden-Roc", color: "#4A9FCC", light: "#E5F2FA" },
   { id: "BB", name: "Beefbar Courchevel", color: "#3A8A5C", light: "#E6F5ED" },
 ];
 
