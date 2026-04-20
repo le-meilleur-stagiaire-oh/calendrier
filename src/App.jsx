@@ -1265,7 +1265,7 @@ function Archive({ posts }) {
 }
 
 // ── Library (full page) ──────────────────────────────────────────────────────
-function Library({ library, setLibrary }) {
+function Library({ library, setLibrary, posts, setPosts, year, month, accountSettings }) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [search, setSearch] = useState("");
@@ -1273,6 +1273,14 @@ function Library({ library, setLibrary }) {
   const [selectedAccount, setSelectedAccount] = useState("all");
   const [uploadAccount, setUploadAccount] = useState("all");
   const fileInputRef = useRef(null);
+
+  // ── Batch mode state ────────────────────────────────────────────────────────
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchAccount, setBatchAccount] = useState("APG");
+  const [batchGroups, setBatchGroups] = useState([]); // [{images: [...], type: "Photo"|"Carrousel"|"Reel"}]
+  const [batchSelected, setBatchSelected] = useState([]); // ids of selected images
+  const [generating, setGenerating] = useState(false);
+  const [genProgress, setGenProgress] = useState({ current: 0, total: 0, label: "" });
 
   const handleUpload = async (files) => {
     if (!files || files.length === 0) return;
@@ -1320,21 +1328,305 @@ function Library({ library, setLibrary }) {
 
   const countFor = (id) => id === "all" ? library.length : library.filter(x => x.account === id).length;
 
+  // ── Batch helpers ────────────────────────────────────────────────────────────
+
+  const toggleBatchSelect = (item) => {
+    setBatchSelected(prev =>
+      prev.find(x => x.id === item.id)
+        ? prev.filter(x => x.id !== item.id)
+        : [...prev, item]
+    );
+  };
+
+  const addGroup = () => {
+    if (batchSelected.length === 0) return;
+    const type = batchSelected.length === 1 ? "Photo" : "Carrousel";
+    setBatchGroups(prev => [...prev, { images: [...batchSelected], type, id: Date.now() }]);
+    setBatchSelected([]);
+  };
+
+  const removeGroup = (gid) => setBatchGroups(prev => prev.filter(g => g.id !== gid));
+  const setGroupType = (gid, type) => setBatchGroups(prev => prev.map(g => g.id === gid ? { ...g, type } : g));
+
+  // Find next available dates for batchAccount in current month
+  const getAvailableDates = () => {
+    const dim = new Date(year, month + 1, 0).getDate();
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    const dates = [];
+    for (let d = 1; d <= dim; d++) {
+      // Only current month, starting from tomorrow
+      const dateObj = new Date(year, month, d);
+      if (dateObj.getMonth() !== month) continue;
+      if (dateObj < tomorrow) continue;
+      const dateKey = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      dates.push(dateKey);
+    }
+    return dates;
+  };
+
+  // Compute smartly spaced slots for batch posts, respecting postsPerWeek and existing posts
+  const getSmartSlots = (numGroups) => {
+    const allDates = getAvailableDates();
+    if (allDates.length === 0 || numGroups === 0) return [];
+
+    const postsPerWeek = Math.max(1, parseInt(accountSettings?.[batchAccount]?.postsPerWeek) || 3);
+
+    // Find days already occupied by this account in the month
+    const occupied = new Set(
+      Object.entries(posts)
+        .filter(([k]) => k.startsWith(`${year}-${String(month+1).padStart(2,"0")}`))
+        .flatMap(([k, v]) => v.filter(p => p.account === batchAccount).map(() => k))
+    );
+
+    // Compute minimum gap between posts in days (7 / postsPerWeek, min 1)
+    const minGap = Math.max(1, Math.floor(7 / postsPerWeek));
+
+    // Greedily pick dates with minGap spacing, skipping occupied days
+    const slots = [];
+    let lastPicked = null;
+
+    for (const dateKey of allDates) {
+      if (slots.length >= numGroups) break;
+      if (occupied.has(dateKey)) continue;
+
+      if (lastPicked !== null) {
+        const last = new Date(lastPicked);
+        const cur = new Date(dateKey);
+        const diffDays = Math.round((cur - last) / 86400000);
+        if (diffDays < minGap) continue;
+      }
+
+      slots.push(dateKey);
+      lastPicked = dateKey;
+    }
+
+    // If not enough slots found (month too full), fill remaining without gap constraint
+    if (slots.length < numGroups) {
+      for (const dateKey of allDates) {
+        if (slots.length >= numGroups) break;
+        if (slots.includes(dateKey)) continue;
+        if (occupied.has(dateKey)) continue;
+        slots.push(dateKey);
+      }
+    }
+
+    return slots;
+  };
+
+  const runBatchGeneration = async () => {
+    if (batchGroups.length === 0) return;
+
+    const slots = getSmartSlots(batchGroups.length);
+    if (slots.length === 0) {
+      alert("Aucun jour disponible ce mois-ci pour ce compte. Le mois est complet ou tous les jours sont déjà occupés.");
+      return;
+    }
+    if (slots.length < batchGroups.length) {
+      const ok = window.confirm(`Seulement ${slots.length} jour${slots.length > 1 ? "s" : ""} disponible${slots.length > 1 ? "s" : ""} ce mois-ci pour ${batchAccount}. Les ${batchGroups.length - slots.length} dernier${batchGroups.length - slots.length > 1 ? "s" : ""} post${batchGroups.length - slots.length > 1 ? "s" : ""} ne seront pas placés. Continuer ?`);
+      if (!ok) return;
+    }
+
+    setGenerating(true);
+    setGenProgress({ current: 0, total: slots.length, label: "Préparation..." });
+
+    const newPosts = { ...posts };
+
+    for (let i = 0; i < slots.length; i++) {
+      const group = batchGroups[i];
+      const dateKey = slots[i];
+
+      setGenProgress({ current: i + 1, total: slots.length, label: `Post ${i + 1}/${slots.length} — analyse en cours...` });
+
+      const firstImg = group.images[0];
+      let subject = "";
+      let caption = "";
+
+      try {
+        const result = await analyzeImageAndGenerate(firstImg.url || null, null, batchAccount, "");
+        subject = result.subject || "";
+        caption = result.caption || "";
+      } catch (e) {
+        console.error("Vision error for group", i, e);
+      }
+
+      const mediaItems = group.images.map(img => ({
+        name: img.name, url: img.url, fileType: img.fileType,
+        fileName: img.name, fileData: null, driveUrl: "",
+      }));
+
+      const existing = newPosts[dateKey] || [];
+      existing.push({ account: batchAccount, type: group.type, subject, caption, credits: "", mediaItems, status: "Brouillon" });
+      newPosts[dateKey] = existing;
+    }
+
+    setPosts(newPosts);
+    setGenerating(false);
+    setGenProgress({ current: 0, total: 0, label: "" });
+    setBatchGroups([]);
+    setBatchSelected([]);
+    setBatchMode(false);
+    alert(`✅ ${slots.length} post${slots.length > 1 ? "s" : ""} généré${slots.length > 1 ? "s" : ""} et placé${slots.length > 1 ? "s" : ""} dans le calendrier !`);
+  };
+
+  // ── Batch UI ─────────────────────────────────────────────────────────────────
+  if (batchMode) return (
+    <div style={{ ...cardStyle, padding: 20, marginTop: 16 }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: C.text, fontFamily: F }}>Génération batch</div>
+          <div style={{ fontSize: 12, color: C.textSecondary, fontFamily: F, marginTop: 2 }}>Sélectionne les images, groupe-les, puis génère</div>
+        </div>
+        <button onClick={() => { setBatchMode(false); setBatchGroups([]); setBatchSelected([]); }}
+          style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.surfaceSecondary, color: C.textSecondary, cursor: "pointer", fontSize: 13, fontFamily: F }}>
+          Annuler
+        </button>
+      </div>
+
+      {/* Account + month selector */}
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 20, flexWrap: "wrap", padding: 14, borderRadius: 12, background: C.surfaceSecondary, border: `1px solid ${C.border}` }}>
+        <div style={{ fontSize: 12, color: C.textSecondary, fontFamily: F }}>Compte :</div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {ACCOUNTS.map(a => (
+            <button key={a.id} onClick={() => setBatchAccount(a.id)}
+              style={{ ...pillBtn(batchAccount === a.id, a.color), fontSize: 12, padding: "5px 14px" }}>
+              {a.id}
+            </button>
+          ))}
+        </div>
+        <div style={{ marginLeft: "auto", fontSize: 12, color: C.textSecondary, fontFamily: F }}>
+          📅 {MONTHS_FR[month]} {year}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        {/* Left: image picker */}
+        <div style={{ flex: "1 1 300px" }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: C.textSecondary, fontFamily: F, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            1. Sélectionne les images
+          </div>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher..." style={{ ...inputStyle, marginBottom: 10, fontSize: 12 }} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 6, maxHeight: 400, overflowY: "auto", padding: 2 }}>
+            {library.filter(x => !x.account || x.account === batchAccount).filter(x => (x.name || "").toLowerCase().includes(search.toLowerCase())).map(item => {
+              const isSelected = batchSelected.find(x => x.id === item.id);
+              const isInGroup = batchGroups.some(g => g.images.find(x => x.id === item.id));
+              return (
+                <div key={item.id} onClick={() => !isInGroup && toggleBatchSelect(item)}
+                  style={{ borderRadius: 8, overflow: "hidden", border: `2px solid ${isSelected ? C.blue : isInGroup ? C.green : C.border}`, position: "relative", cursor: isInGroup ? "default" : "pointer", opacity: isInGroup ? 0.5 : 1, transition: "border-color .15s" }}>
+                  {item.fileType?.startsWith("image/") ? (
+                    <img src={item.url} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
+                  ) : (
+                    <div style={{ width: "100%", aspectRatio: "1", background: `${C.blue}10`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: 20 }}>🎬</span>
+                    </div>
+                  )}
+                  {isSelected && (
+                    <div style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: C.blue, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>✓</span>
+                    </div>
+                  )}
+                  {isInGroup && (
+                    <div style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: C.green, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>✓</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {batchSelected.length > 0 && (
+            <button onClick={addGroup}
+              style={{ width: "100%", marginTop: 10, padding: "10px", borderRadius: 10, border: "none", background: C.blue, color: "#fff", cursor: "pointer", fontSize: 13, fontFamily: F, fontWeight: 600 }}>
+              ＋ Créer un groupe avec {batchSelected.length} image{batchSelected.length > 1 ? "s" : ""}
+              {batchSelected.length > 1 ? " → Carrousel" : " → Photo"}
+            </button>
+          )}
+        </div>
+
+        {/* Right: groups */}
+        <div style={{ flex: "1 1 280px" }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: C.textSecondary, fontFamily: F, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            2. Groupes ({batchGroups.length} post{batchGroups.length !== 1 ? "s" : ""})
+          </div>
+
+          {batchGroups.length === 0 && (
+            <div style={{ padding: 30, textAlign: "center", color: C.textTertiary, fontSize: 13, fontFamily: F, border: `2px dashed ${C.border}`, borderRadius: 12 }}>
+              Sélectionne des images à gauche et crée des groupes
+            </div>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {batchGroups.map((group, gi) => (
+              <div key={group.id} style={{ borderRadius: 12, border: `1px solid ${C.border}`, background: C.surface, overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: C.surfaceSecondary, borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.text, fontFamily: F }}>Post {gi + 1}</span>
+                  <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+                    {["Photo", "Carrousel", "Reel"].map(t => (
+                      <button key={t} onClick={() => setGroupType(group.id, t)}
+                        style={{ padding: "2px 8px", borderRadius: 6, border: `1px solid ${group.type === t ? C.blue : C.border}`, background: group.type === t ? C.blue : "transparent", color: group.type === t ? "#fff" : C.textSecondary, cursor: "pointer", fontSize: 10, fontFamily: F, fontWeight: 600 }}>
+                        {t}
+                      </button>
+                    ))}
+                    <button onClick={() => removeGroup(group.id)}
+                      style={{ padding: "2px 6px", borderRadius: 6, border: "none", background: "none", color: C.textTertiary, cursor: "pointer", fontSize: 14 }}>×</button>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 4, padding: 8, flexWrap: "wrap" }}>
+                  {group.images.map(img => (
+                    <img key={img.id} src={img.url} style={{ width: 48, height: 48, borderRadius: 6, objectFit: "cover" }} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {batchGroups.length > 0 && (
+            <button onClick={runBatchGeneration} disabled={generating}
+              style={{ width: "100%", marginTop: 12, padding: "12px", borderRadius: 10, border: "none", background: generating ? C.surfaceSecondary : `linear-gradient(135deg, ${C.indigo}, ${C.blue})`, color: generating ? C.textSecondary : "#fff", cursor: generating ? "default" : "pointer", fontSize: 14, fontFamily: F, fontWeight: 700, boxShadow: generating ? "none" : `0 3px 14px ${C.blue}44` }}>
+              {generating
+                ? `✨ ${genProgress.label}`
+                : `✨ Générer ${batchGroups.length} post${batchGroups.length > 1 ? "s" : ""} avec l'IA`}
+            </button>
+          )}
+
+          {generating && genProgress.total > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ height: 5, borderRadius: 3, background: C.border, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${(genProgress.current / genProgress.total) * 100}%`, background: C.blue, borderRadius: 3, transition: "width .4s" }} />
+              </div>
+              <div style={{ fontSize: 11, color: C.textSecondary, fontFamily: F, marginTop: 4, textAlign: "center" }}>
+                {genProgress.current}/{genProgress.total} posts générés
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── Normal library view ───────────────────────────────────────────────────────
   return (
     <div style={{ ...cardStyle, padding: 20, marginTop: 16 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: C.textSecondary, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: F, marginBottom: 16 }}>
-        Librairie — {filtered.length} fichier{filtered.length !== 1 ? "s" : ""}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: C.textSecondary, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: F }}>
+          Librairie — {filtered.length} fichier{filtered.length !== 1 ? "s" : ""}
+        </div>
+        <button onClick={() => setBatchMode(true)}
+          style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${C.indigo}, ${C.blue})`, color: "#fff", cursor: "pointer", fontSize: 13, fontFamily: F, fontWeight: 600, boxShadow: `0 2px 10px ${C.blue}44` }}>
+          ✨ Génération batch
+        </button>
       </div>
 
       {/* Account tabs */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-        <button onClick={() => setSelectedAccount("all")}
-          style={{ ...pillBtn(selectedAccount === "all"), fontSize: 12 }}>
+        <button onClick={() => setSelectedAccount("all")} style={{ ...pillBtn(selectedAccount === "all"), fontSize: 12 }}>
           Tous ({countFor("all")})
         </button>
         {ACCOUNTS.map(a => (
-          <button key={a.id} onClick={() => setSelectedAccount(a.id)}
-            style={{ ...pillBtn(selectedAccount === a.id, a.color), fontSize: 12 }}>
+          <button key={a.id} onClick={() => setSelectedAccount(a.id)} style={{ ...pillBtn(selectedAccount === a.id, a.color), fontSize: 12 }}>
             {a.id} ({countFor(a.id)})
           </button>
         ))}
@@ -1366,8 +1658,7 @@ function Library({ library, setLibrary }) {
           <>
             <div style={{ fontSize: 24, marginBottom: 4 }}>📁</div>
             <div style={{ fontSize: 13, color: C.text, fontFamily: F, fontWeight: 500 }}>
-              Cliquer ou glisser-déposer
-              {uploadAccount !== "all" ? ` — ${uploadAccount}` : " — tous les comptes"}
+              Cliquer ou glisser-déposer{uploadAccount !== "all" ? ` — ${uploadAccount}` : ""}
             </div>
             <div style={{ fontSize: 11, color: C.textSecondary, fontFamily: F, marginTop: 2 }}>JPG, PNG, WEBP, GIF, MP4</div>
           </>
@@ -1376,10 +1667,8 @@ function Library({ library, setLibrary }) {
       <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple style={{ display: "none" }}
         onChange={e => { handleUpload(Array.from(e.target.files)); e.target.value = ""; }} />
 
-      {/* Search */}
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher par nom..." style={{ ...inputStyle, marginBottom: 16 }} />
 
-      {/* Grid */}
       {filtered.length === 0 && (
         <div style={{ textAlign: "center", color: C.textTertiary, padding: 40, fontSize: 13, fontFamily: F }}>
           Aucune image{selectedAccount !== "all" ? ` pour ${selectedAccount}` : " dans la librairie"}
@@ -1409,7 +1698,6 @@ function Library({ library, setLibrary }) {
         })}
       </div>
 
-      {/* Lightbox */}
       {lightbox && (
         <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div onClick={e => e.stopPropagation()} style={{ position: "relative", maxWidth: "90vw" }}>
@@ -1741,7 +2029,7 @@ export default function App() {
 
       {view === "archive" && <Archive posts={posts} />}
 
-      {view === "library" && <Library library={library} setLibrary={setLibrary} />}
+      {view === "library" && <Library library={library} setLibrary={setLibrary} posts={posts} setPosts={setPosts} year={year} month={month} accountSettings={accountSettings} />}
     </div>
     </LibraryContext.Provider>
   );
