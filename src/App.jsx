@@ -206,6 +206,7 @@ CRITICAL: Respond ONLY with this JSON object, nothing else:
     return { subject: '', caption: '' };
   }
 }
+const selectStyle = {
   padding: "6px 10px", borderRadius: 10,
   border: `1px solid ${C.border}`,
   fontSize: 13, fontFamily: F, color: C.text,
