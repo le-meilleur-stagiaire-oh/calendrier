@@ -158,7 +158,54 @@ const C = {
   teal: "#5AC8FA",
 };
 
-const selectStyle = {
+async function analyzeImageAndGenerate(imageUrl, imageBase64, account, credits) {
+  const acc = ACCOUNTS.find(a => a.id === account);
+  const mandatory = MANDATORY_HASHTAGS[account] || [];
+  const allTags = Object.values(HASHTAG_BANK[account] || {}).flat();
+  const pool = [...new Set(allTags)].filter(t => !mandatory.map(m => m.toLowerCase()).includes(t.toLowerCase()));
+  const randomTags = [...pool].sort(() => Math.random() - 0.5).slice(0, 5);
+  const finalTags = [...mandatory, ...randomTags];
+
+  const prompt = `You are a luxury hospitality social media copywriter for ${acc?.name} (${account}).
+
+Look at this image carefully. Based on what you see:
+
+1. Identify the scene and propose a SHORT subject line (5-10 words max, in French) that captures the essence of the photo for an Instagram post.
+
+2. Write a complete Instagram caption following this EXACT format:
+
+[English text: 2-3 sentences max. Elegant, formal, evocative. No emojis.]
+
+—
+
+[French translation: 2-3 sentences max. Same tone.]
+
+—
+
+${credits ? `${credits}\n\n—\n\n` : ""}${finalTags.join(" ")}
+
+CRITICAL: Respond ONLY with this JSON object, nothing else:
+{"subject": "le sujet en français", "caption": "the full caption text exactly as formatted above"}`;
+
+  try {
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'vision', prompt, imageUrl, imageBase64 }),
+    });
+    const data = await res.json();
+    const text = (data.text || '').trim();
+    // Parse JSON from response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return { subject: parsed.subject || '', caption: parsed.caption || '' };
+    }
+    return { subject: '', caption: text };
+  } catch (e) {
+    return { subject: '', caption: '' };
+  }
+}
   padding: "6px 10px", borderRadius: 10,
   border: `1px solid ${C.border}`,
   fontSize: 13, fontFamily: F, color: C.text,
@@ -526,6 +573,7 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
   const [dupDate, setDupDate] = useState("");
   const [dupAccount, setDupAccount] = useState("");
   const [showLibrary, setShowLibrary] = useState(false);
+  const [analyzingImage, setAnalyzingImage] = useState(false);
 
   // Suggested time
   const dow = new Date(dateKey).getDay();
@@ -670,6 +718,7 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
       {showLibrary && (
         <LibraryPicker
           onClose={() => setShowLibrary(false)}
+          accountHint={post.account || "all"}
           onSelect={item => {
             const items = [...(post.mediaItems || [])];
             items.push({ name: item.name, url: item.url, fileType: item.fileType, fileName: item.name, fileData: null, driveUrl: "" });
@@ -677,7 +726,53 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
           }}
         />
       )}
-      {generating && <div style={{ padding: 12, textAlign: "center", color: C.blue, fontSize: 12, fontStyle: "italic", fontFamily: F }}>Génération de la caption en cours...</div>}
+
+      {/* Analyze image button — shown when there's an image and an account selected */}
+      {(() => {
+        const firstImage = (post.mediaItems || []).find(m =>
+          (m.fileData && m.fileData.startsWith("data:image")) ||
+          (m.url && (m.fileType?.startsWith("image/") || m.url.match(/\.(jpg|jpeg|png|webp|gif)/i)))
+        );
+        if (!firstImage || !post.account) return null;
+        return (
+          <button
+            disabled={analyzingImage || generating}
+            onClick={async () => {
+              setAnalyzingImage(true);
+              const result = await analyzeImageAndGenerate(
+                firstImage.url || null,
+                firstImage.fileData || null,
+                post.account,
+                post.credits || ""
+              );
+              if (result.subject) onUpdate("subject", result.subject);
+              if (result.caption) onUpdate("caption", result.caption);
+              setAnalyzingImage(false);
+            }}
+            style={{
+              width: "100%", padding: "10px 16px", borderRadius: 10, border: "none",
+              background: analyzingImage ? C.surfaceSecondary : `linear-gradient(135deg, ${C.indigo}, ${C.blue})`,
+              color: analyzingImage ? C.textSecondary : "#fff",
+              cursor: analyzingImage ? "default" : "pointer",
+              fontSize: 13, fontFamily: F, fontWeight: 600,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              marginBottom: 10, transition: "all .2s",
+              boxShadow: analyzingImage ? "none" : `0 2px 12px ${C.blue}44`,
+            }}>
+            {analyzingImage ? (
+              <>
+                <span style={{ fontSize: 14 }}>⏳</span>
+                Analyse de l'image en cours...
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: 14 }}>✨</span>
+                Analyser l'image et générer la caption
+              </>
+            )}
+          </button>
+        );
+      })()}
       {post.caption && (
         <div style={{ marginBottom: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
@@ -1068,6 +1163,8 @@ function Library({ library, setLibrary }) {
   const [progress, setProgress] = useState(0);
   const [search, setSearch] = useState("");
   const [lightbox, setLightbox] = useState(null);
+  const [selectedAccount, setSelectedAccount] = useState("all");
+  const [uploadAccount, setUploadAccount] = useState("all");
   const fileInputRef = useRef(null);
 
   const handleUpload = async (files) => {
@@ -1076,19 +1173,20 @@ function Library({ library, setLibrary }) {
     setUploading(true); setProgress(0);
     const total = files.length;
     const added = [];
+    const account = uploadAccount === "all" ? null : uploadAccount;
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const fd = new FormData();
       fd.append("file", file);
       fd.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-      fd.append("folder", "oh_library");
+      fd.append("folder", account ? `oh_library/${account}` : "oh_library");
       const xhr = new XMLHttpRequest();
       await new Promise((res, rej) => {
         xhr.upload.onprogress = e => { if (e.lengthComputable) setProgress(Math.round(((i + e.loaded / e.total) / total) * 100)); };
         xhr.onload = async () => {
           if (xhr.status === 200) {
             const r = JSON.parse(xhr.responseText);
-            const entry = { url: r.secure_url, publicId: r.public_id, name: file.name, fileType: file.type, uploadedAt: new Date().toISOString() };
+            const entry = { url: r.secure_url, publicId: r.public_id, name: file.name, fileType: file.type, account: account || null, uploadedAt: new Date().toISOString() };
             if (db) { const ref = await addDoc(collection(db, "library"), entry); added.push({ id: ref.id, ...entry }); }
             else added.push({ id: Date.now() + i, ...entry });
             res();
@@ -1109,33 +1207,62 @@ function Library({ library, setLibrary }) {
     setLibrary(prev => prev.filter(x => x.id !== item.id));
   };
 
-  const filtered = library.filter(x => (x.name || "").toLowerCase().includes(search.toLowerCase()));
+  const filtered = library
+    .filter(x => selectedAccount === "all" ? true : (x.account === selectedAccount))
+    .filter(x => (x.name || "").toLowerCase().includes(search.toLowerCase()));
+
+  const countFor = (id) => id === "all" ? library.length : library.filter(x => x.account === id).length;
 
   return (
     <div style={{ ...cardStyle, padding: 20, marginTop: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: C.text, letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 16 }}>
-        Librairie — {library.length} fichier{library.length !== 1 ? "s" : ""}
+      <div style={{ fontSize: 12, fontWeight: 600, color: C.textSecondary, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: F, marginBottom: 16 }}>
+        Librairie — {filtered.length} fichier{filtered.length !== 1 ? "s" : ""}
+      </div>
+
+      {/* Account tabs */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+        <button onClick={() => setSelectedAccount("all")}
+          style={{ ...pillBtn(selectedAccount === "all"), fontSize: 12 }}>
+          Tous ({countFor("all")})
+        </button>
+        {ACCOUNTS.map(a => (
+          <button key={a.id} onClick={() => setSelectedAccount(a.id)}
+            style={{ ...pillBtn(selectedAccount === a.id, a.color), fontSize: 12 }}>
+            {a.id} ({countFor(a.id)})
+          </button>
+        ))}
       </div>
 
       {/* Upload zone */}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: C.textSecondary, fontFamily: F }}>Uploader pour :</span>
+        <select value={uploadAccount} onChange={e => setUploadAccount(e.target.value)} style={{ ...selectStyle, fontSize: 12 }}>
+          <option value="all">— Tous les comptes —</option>
+          {ACCOUNTS.map(a => <option key={a.id} value={a.id}>{a.id} — {a.name}</option>)}
+        </select>
+      </div>
+
       <div
         onClick={() => !uploading && fileInputRef.current?.click()}
-        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = C.text; }}
+        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = C.blue; }}
         onDragLeave={e => { e.currentTarget.style.borderColor = C.border; }}
         onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = C.border; handleUpload(Array.from(e.dataTransfer.files)); }}
-        style={{ border: "2px dashed #D0D5DD", borderRadius: 10, padding: "22px 20px", textAlign: "center", cursor: uploading ? "default" : "pointer", background: C.surfaceSecondary, marginBottom: 16, transition: "all .2s" }}>
+        style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: "22px 20px", textAlign: "center", cursor: uploading ? "default" : "pointer", background: C.surfaceSecondary, marginBottom: 16, transition: "all .2s" }}>
         {uploading ? (
           <div>
             <div style={{ fontSize: 13, color: C.text, fontFamily: F, marginBottom: 8 }}>Upload en cours... {progress}%</div>
-            <div style={{ height: 6, borderRadius: 3, background: C.border, overflow: "hidden", maxWidth: 300, margin: "0 auto" }}>
-              <div style={{ height: "100%", width: `${progress}%`, background: C.text, borderRadius: 3, transition: "width .3s" }} />
+            <div style={{ height: 5, borderRadius: 3, background: C.border, overflow: "hidden", maxWidth: 300, margin: "0 auto" }}>
+              <div style={{ height: "100%", width: `${progress}%`, background: C.blue, borderRadius: 3, transition: "width .3s" }} />
             </div>
           </div>
         ) : (
           <>
             <div style={{ fontSize: 24, marginBottom: 4 }}>📁</div>
-            <div style={{ fontSize: 13, color: C.text, fontFamily: F, fontWeight: 500 }}>Cliquer ou glisser-déposer des images</div>
-            <div style={{ fontSize: 11, color: C.textSecondary, fontFamily: F, marginTop: 2 }}>JPG, PNG, WEBP, GIF, MP4 — plusieurs fichiers acceptés</div>
+            <div style={{ fontSize: 13, color: C.text, fontFamily: F, fontWeight: 500 }}>
+              Cliquer ou glisser-déposer
+              {uploadAccount !== "all" ? ` — ${uploadAccount}` : " — tous les comptes"}
+            </div>
+            <div style={{ fontSize: 11, color: C.textSecondary, fontFamily: F, marginTop: 2 }}>JPG, PNG, WEBP, GIF, MP4</div>
           </>
         )}
       </div>
@@ -1146,23 +1273,33 @@ function Library({ library, setLibrary }) {
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher par nom..." style={{ ...inputStyle, marginBottom: 16 }} />
 
       {/* Grid */}
-      {filtered.length === 0 && <div style={{ textAlign: "center", color: C.textTertiary, padding: 40, fontSize: 13, fontFamily: F }}>Aucune image dans la librairie</div>}
+      {filtered.length === 0 && (
+        <div style={{ textAlign: "center", color: C.textTertiary, padding: 40, fontSize: 13, fontFamily: F }}>
+          Aucune image{selectedAccount !== "all" ? ` pour ${selectedAccount}` : " dans la librairie"}
+        </div>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
-        {filtered.map(item => (
-          <div key={item.id} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #E8E8E8", background: C.surfaceSecondary, position: "relative" }}>
-            {item.fileType?.startsWith("image/") ? (
-              <img src={item.url} alt={item.name} onClick={() => setLightbox(item)}
-                style={{ width: "100%", aspectRatio: "1", objectFit: "cover", cursor: "pointer", display: "block" }} />
-            ) : (
-              <div style={{ width: "100%", aspectRatio: "1", background: "#1A365D10", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} onClick={() => setLightbox(item)}>
-                <span style={{ fontSize: 28 }}>🎬</span>
+        {filtered.map(item => {
+          const acc = ACCOUNTS.find(a => a.id === item.account);
+          return (
+            <div key={item.id} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}`, background: C.surfaceSecondary, position: "relative" }}>
+              {item.fileType?.startsWith("image/") ? (
+                <img src={item.url} alt={item.name} onClick={() => setLightbox(item)}
+                  style={{ width: "100%", aspectRatio: "1", objectFit: "cover", cursor: "pointer", display: "block" }} />
+              ) : (
+                <div style={{ width: "100%", aspectRatio: "1", background: `${C.blue}10`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} onClick={() => setLightbox(item)}>
+                  <span style={{ fontSize: 28 }}>🎬</span>
+                </div>
+              )}
+              <div style={{ padding: "5px 6px", background: C.surface, borderTop: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 9, color: C.textTertiary, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+                {acc && <div style={{ fontSize: 9, fontWeight: 700, color: acc.color, fontFamily: F, marginTop: 1 }}>{acc.id}</div>}
               </div>
-            )}
-            <div style={{ padding: "4px 6px", fontSize: 10, color: "#888", fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", background: "#fff" }}>{item.name}</div>
-            <button onClick={() => handleDelete(item)}
-              style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.5)", color: "#fff", cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
-          </div>
-        ))}
+              <button onClick={() => handleDelete(item)}
+                style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.5)", color: "#fff", cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+            </div>
+          );
+        })}
       </div>
 
       {/* Lightbox */}
@@ -1171,7 +1308,7 @@ function Library({ library, setLibrary }) {
           <div onClick={e => e.stopPropagation()} style={{ position: "relative", maxWidth: "90vw" }}>
             <img src={lightbox.url} style={{ maxWidth: "85vw", maxHeight: "80vh", objectFit: "contain", borderRadius: 10, display: "block" }} />
             <div style={{ marginTop: 8, textAlign: "center", color: "#fff", fontSize: 12, fontFamily: F }}>{lightbox.name}</div>
-            <button onClick={() => setLightbox(null)} style={{ position: "absolute", top: -14, right: -14, width: 28, height: 28, borderRadius: "50%", border: "none", background: "#fff", color: "#333", cursor: "pointer", fontSize: 15, fontWeight: 700 }}>×</button>
+            <button onClick={() => setLightbox(null)} style={{ position: "absolute", top: -14, right: -14, width: 28, height: 28, borderRadius: "50%", border: "none", background: "#fff", color: C.text, cursor: "pointer", fontSize: 15, fontWeight: 700 }}>×</button>
           </div>
         </div>
       )}
@@ -1180,36 +1317,57 @@ function Library({ library, setLibrary }) {
 }
 
 // ── LibraryPicker (modal inside PostEditor) ──────────────────────────────────
-function LibraryPicker({ onSelect, onClose }) {
+function LibraryPicker({ onSelect, onClose, accountHint }) {
   const { library } = useContext(LibraryContext);
   const [search, setSearch] = useState("");
-  const filtered = library.filter(x => (x.name || "").toLowerCase().includes(search.toLowerCase()));
+  const [filterAcc, setFilterAcc] = useState(accountHint || "all");
+
+  const filtered = library
+    .filter(x => filterAcc === "all" ? true : (x.account === filterAcc || !x.account))
+    .filter(x => (x.name || "").toLowerCase().includes(search.toLowerCase()));
+
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 12, padding: 20, width: "min(600px, 95vw)", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: C.text, fontFamily: F }}>Choisir depuis la librairie</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: C.textSecondary }}>×</button>
+      <div onClick={e => e.stopPropagation()} style={{ background: C.surface, borderRadius: 16, padding: 20, width: "min(640px, 95vw)", maxHeight: "82vh", display: "flex", flexDirection: "column", boxShadow: "0 8px 40px rgba(0,0,0,0.2)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: C.text, fontFamily: F }}>Choisir depuis la librairie</span>
+          <button onClick={onClose} style={{ background: C.surfaceSecondary, border: "none", width: 28, height: 28, borderRadius: "50%", cursor: "pointer", color: C.textSecondary, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
         </div>
+
+        {/* Account filter */}
+        <div style={{ display: "flex", gap: 5, marginBottom: 12, flexWrap: "wrap" }}>
+          <button onClick={() => setFilterAcc("all")} style={{ ...pillBtn(filterAcc === "all"), fontSize: 11, padding: "4px 12px" }}>Tous</button>
+          {ACCOUNTS.map(a => (
+            <button key={a.id} onClick={() => setFilterAcc(a.id)} style={{ ...pillBtn(filterAcc === a.id, a.color), fontSize: 11, padding: "4px 12px" }}>{a.id}</button>
+          ))}
+        </div>
+
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher..." style={{ ...inputStyle, marginBottom: 12 }} />
+
         <div style={{ overflowY: "auto", flex: 1 }}>
-          {filtered.length === 0 && <div style={{ textAlign: "center", color: C.textTertiary, padding: 30, fontSize: 13, fontFamily: F }}>Aucun fichier dans la librairie</div>}
+          {filtered.length === 0 && <div style={{ textAlign: "center", color: C.textTertiary, padding: 30, fontSize: 13, fontFamily: F }}>Aucun fichier trouvé</div>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
-            {filtered.map(item => (
-              <div key={item.id} onClick={() => { onSelect(item); onClose(); }}
-                style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #E8E8E8", cursor: "pointer", background: C.surfaceSecondary, transition: "border-color .15s" }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = C.text}
-                onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
-                {item.fileType?.startsWith("image/") ? (
-                  <img src={item.url} alt={item.name} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
-                ) : (
-                  <div style={{ width: "100%", aspectRatio: "1", background: "#1A365D10", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontSize: 24 }}>🎬</span>
+            {filtered.map(item => {
+              const acc = ACCOUNTS.find(a => a.id === item.account);
+              return (
+                <div key={item.id} onClick={() => { onSelect(item); onClose(); }}
+                  style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}`, cursor: "pointer", background: C.surfaceSecondary, transition: "border-color .15s, transform .12s" }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = C.blue; e.currentTarget.style.transform = "scale(1.02)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.transform = "scale(1)"; }}>
+                  {item.fileType?.startsWith("image/") ? (
+                    <img src={item.url} alt={item.name} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} />
+                  ) : (
+                    <div style={{ width: "100%", aspectRatio: "1", background: `${C.blue}10`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: 24 }}>🎬</span>
+                    </div>
+                  )}
+                  <div style={{ padding: "4px 6px", background: C.surface }}>
+                    <div style={{ fontSize: 9, color: C.textTertiary, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+                    {acc && <div style={{ fontSize: 9, fontWeight: 700, color: acc.color, fontFamily: F }}>{acc.id}</div>}
                   </div>
-                )}
-                <div style={{ padding: "3px 5px", fontSize: 9, color: "#888", fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
