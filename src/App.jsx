@@ -92,33 +92,63 @@ function getWeeksOfMonth(y, m) {
   return weeks;
 }
 
+const ACCOUNT_VOICE = {
+  APG: `The voice of silent Alpine exclusivity. Raw mountain mornings, the smell of wood and snow, the feeling of being above the world. Intimate, not showy. Cozy but never rustic.`,
+  CSM: `The voice of Provençal timelessness. Stone, light, lavender, silence broken only by cicadas. A place where time slows down on purpose. Poetic, grounded, never overwrought.`,
+  HDCER: `The voice of Mediterranean legend. This is where cinema, art and the sea have always met. Iconic without trying to be. The light here is different. Timeless, not trendy.`,
+  BB: `The voice of unapologetic indulgence. Premium cuts, low lights, the sound of a room that knows how to have a good time. Confident, sensory, a little cinematic.`,
+};
+
+function buildFinalHashtags(account) {
+  const mandatory = MANDATORY_HASHTAGS[account] || [];
+  const allTags = Object.values(HASHTAG_BANK[account] || {}).flat();
+  const pool = [...new Set(allTags)].filter(t =>
+    !mandatory.map(m => m.toLowerCase()).includes(t.toLowerCase())
+  );
+  // Exactly 5 total: fill with mandatory first, then random from pool
+  if (mandatory.length >= 5) return mandatory.slice(0, 5);
+  const needed = 5 - mandatory.length;
+  const random = [...pool].sort(() => Math.random() - 0.5).slice(0, needed);
+  return [...mandatory, ...random];
+}
+
 async function generateCaption(subject, account, credits) {
   const acc = ACCOUNTS.find(a => a.id === account);
-  const allTags = Object.values(HASHTAG_BANK[account]).flat();
-  const mandatory = MANDATORY_HASHTAGS[account] || [];
-  const pool = [...new Set(allTags)].filter(t => !mandatory.map(m => m.toLowerCase()).includes(t.toLowerCase()));
-  const randomTags = [...pool].sort(() => Math.random() - 0.5).slice(0, 5);
-  const finalTags = [...mandatory, ...randomTags];
+  const finalTags = buildFinalHashtags(account);
+  const mention = account === "BB" ? "@lapogeecourchevel" : "@oetkerhotels";
+  const voice = ACCOUNT_VOICE[account] || "";
 
-  const prompt = `You are a luxury hospitality social media copywriter for ${acc.name} (${account}).
+  const prompt = `You are an elite social media copywriter specializing in ultra-luxury hospitality.
+You write for ${acc.name} (${account}), whose voice is:
+${voice}
 
 Subject: ${subject}
 ${credits ? `Credits: ${credits}` : ""}
 
-Write a SHORT Instagram caption following this EXACT format with EXACT line breaks:
+Your task: write an Instagram caption that makes the reader FEEL something — nostalgia, desire, calm, excitement — as if they are already there or desperately want to be. The reader has just seen the photo or video. Your words must extend that emotion, not just describe what they already see.
 
-[English text: 2-3 sentences max. Elegant, formal, simple. No emojis.]
-[empty line]
-\u2014
-[empty line]
-[French translation: 2-3 sentences max. Same tone.]
-[empty line]
-\u2014
-[empty line]
-${credits ? `${credits}\n[empty line]\n\u2014\n[empty line]\n` : ""}${finalTags.join(" ")}
+STRICT RULES:
+- HOOK: The first sentence must be a powerful, unexpected opening — an evocative statement, a sensory detail, or a quiet observation. Never a question. Never a cliché.
+- LENGTH: 2 to 3 sentences per language. Go to 4 only if it adds real emotional weight.
+- TONE: British elegance written in American English. Restrained but felt.
+- BANNED WORDS: luxury, unique, unforgettable, magical, breathtaking, incredible, experience, world-class, prestigious, exceptional, exclusive, perfect, stunning, amazing, wonderful, paradise, dream, ultimate, unparalleled, exquisite.
+- NO emojis. NO exclamation marks. NO hollow adjectives.
+- Write as if you have one chance to make someone stop scrolling.
 
-CRITICAL: There must be exactly ONE empty line before and after each \u2014 dash.
-Keep it SHORT. 2-3 sentences per language maximum.
+FORMAT (follow exactly, with ONE empty line before and after each —):
+
+[English caption — hook first, 2-3 sentences]
+
+—
+
+[French translation — same emotional weight, not word-for-word]
+
+—
+${credits ? `\n${credits}\n\n—\n` : ""}
+${mention}
+
+${finalTags.join(" ")}
+
 Output ONLY the caption text. No brackets, no labels, no quotes, no explanation.`;
 
   try {
@@ -130,9 +160,9 @@ Output ONLY the caption text. No brackets, no labels, no quotes, no explanation.
     const data = await res.json();
     return (data.text || "").trim();
   } catch (e) {
-    let fb = `Experience the essence of ${subject} at ${acc.name}.\n\n\u2014\n\nD\u00e9couvrez l\u2019essence de ${subject} \u00e0 ${acc.name}.`;
-    if (credits) fb += `\n\n\u2014\n\n${credits}`;
-    fb += `\n\n\u2014\n\n${finalTags.join(" ")}`;
+    let fb = `The mountain holds its breath at this hour.\n\n—\n\nLa montagne retient son souffle à cette heure.`;
+    if (credits) fb += `\n\n—\n\n${credits}`;
+    fb += `\n\n—\n\n${mention}\n\n${finalTags.join(" ")}`;
     return fb;
   }
 }
@@ -161,29 +191,41 @@ const C = {
 
 async function analyzeImageAndGenerate(imageUrl, imageBase64, account, credits) {
   const acc = ACCOUNTS.find(a => a.id === account);
-  const mandatory = MANDATORY_HASHTAGS[account] || [];
-  const allTags = Object.values(HASHTAG_BANK[account] || {}).flat();
-  const pool = [...new Set(allTags)].filter(t => !mandatory.map(m => m.toLowerCase()).includes(t.toLowerCase()));
-  const randomTags = [...pool].sort(() => Math.random() - 0.5).slice(0, 5);
-  const finalTags = [...mandatory, ...randomTags];
+  const finalTags = buildFinalHashtags(account);
+  const mention = account === "BB" ? "@lapogeecourchevel" : "@oetkerhotels";
+  const voice = ACCOUNT_VOICE[account] || "";
 
-  const prompt = `You are a luxury hospitality social media copywriter for ${acc?.name} (${account}).
+  const prompt = `You are an elite social media copywriter specializing in ultra-luxury hospitality.
+You write for ${acc?.name} (${account}), whose voice is:
+${voice}
 
-Look at this image carefully. Based on what you see:
+Look at this image with the eye of a creative director, not a tourist. Identify: the mood, the light, the emotion it creates, what is implied but not shown. Use that as the foundation for both the hook and the caption.
 
-1. Identify the scene and propose a SHORT subject line (5-10 words max, in French) that captures the essence of the photo for an Instagram post.
+Your tasks:
+1. Write a subject line (5-10 words max, in French) — what a magazine editor would write as a headline for this image.
+2. Write an Instagram caption that makes the reader FEEL something — nostalgia, desire, calm, excitement — as if they are already there or desperately want to be. The reader has just seen this image. Your words must extend that emotion, not just describe what they see.
 
-2. Write a complete Instagram caption following this EXACT format:
+STRICT RULES:
+- HOOK: The first sentence must be a powerful, unexpected opening — an evocative statement, a sensory detail, or a quiet observation. Never a question. Never a cliché.
+- LENGTH: 2 to 3 sentences per language. Go to 4 only if it adds real emotional weight.
+- TONE: British elegance written in American English. Restrained but felt.
+- BANNED WORDS: luxury, unique, unforgettable, magical, breathtaking, incredible, experience, world-class, prestigious, exceptional, exclusive, perfect, stunning, amazing, wonderful, paradise, dream, ultimate, unparalleled, exquisite.
+- NO emojis. NO exclamation marks. NO hollow adjectives.
+- Write as if you have one chance to make someone stop scrolling.
 
-[English text: 2-3 sentences max. Elegant, formal, evocative. No emojis.]
+CAPTION FORMAT (follow exactly, with ONE empty line before and after each —):
+
+[English caption — hook first, 2-3 sentences]
 
 —
 
-[French translation: 2-3 sentences max. Same tone.]
+[French translation — same emotional weight, not word-for-word]
 
 —
+${credits ? `\n${credits}\n\n—\n` : ""}
+${mention}
 
-${credits ? `${credits}\n\n—\n\n` : ""}${finalTags.join(" ")}
+${finalTags.join(" ")}
 
 CRITICAL: Respond ONLY with this JSON object, nothing else:
 {"subject": "le sujet en français", "caption": "the full caption text exactly as formatted above"}`;
@@ -196,7 +238,6 @@ CRITICAL: Respond ONLY with this JSON object, nothing else:
     });
     const data = await res.json();
     const text = (data.text || '').trim();
-    // Parse JSON from response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
