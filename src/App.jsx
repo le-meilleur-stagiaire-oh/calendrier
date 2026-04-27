@@ -23,6 +23,8 @@ const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET |
 
 // Library context — shared across PostEditor instances
 const LibraryContext = createContext({ library: [], setLibrary: () => {} });
+// Hashtag context — shared across PostEditor instances
+const HashtagContext = createContext({ hashtagBank: HASHTAG_BANK, mandatoryHashtags: MANDATORY_HASHTAGS });
 
 const ACCOUNTS = [
   { id: "APG", name: "L'Apogée Courchevel", color: "#7B2D3B", light: "#F5E6E9" },
@@ -64,7 +66,12 @@ const MANDATORY_HASHTAGS = {
   BB: [],
 };
 
-const SUBJECT_BANK = {
+const DEFAULT_SUBFOLDERS = {
+  APG:   ["Extérieur", "Intérieur", "Chambres", "Chalets", "F&B", "Cuisine", "Lifestyle"],
+  CSM:   ["Extérieur", "Intérieur", "Chambres", "Villas", "F&B", "Cuisine", "Lifestyle"],
+  HDCER: ["Extérieur", "Intérieur", "Chambres", "Villas", "F&B", "Cuisine", "Lifestyle"],
+  BB:    ["F&B", "Cuisine", "Lifestyle"],
+};
   HDCER: ["Lever de soleil sur la mer", "Coucher de soleil iconique", "Une journée à l'hôtel", "Les plus belles vues", "Room tour d'une suite", "Les détails du luxe", "La piscine mythique", "Moments hors saison", "Ambiance Riviera", "Terrasse avec vue mer", "Petit-déjeuner face à la mer", "Moments de calme absolu", "Les coins cachés", "Arrivée d'un client", "Expérience client complète", "Service en chambre", "Les jardins en fleurs", "L'hôtel vu du ciel", "Moments golden hour", "Ambiance dolce vita"],
   CSM: ["Vue panoramique", "Moments de détente au spa", "Une journée slow luxury", "Les villas privées", "Petit-déjeuner avec vue", "Coucher de soleil sur les collines", "Ambiance nature", "Les jardins du domaine", "Moments de silence", "Dîner en terrasse", "Expérience bien-être", "Architecture du château", "Moments intimistes", "Les coins cachés", "Une journée sans quitter l'hôtel", "Ambiance romantique", "Les saisons au domaine", "Moments suspendus", "Vue depuis la piscine", "Évasion sur la Côte d'Azur"],
   APG: ["Ski-in ski-out", "Matin en montagne", "Vue sur les pistes", "Après-ski", "Ambiance hivernale", "Moments cocooning", "Cheminée et ambiance chaleureuse", "Une journée à Courchevel", "Spa après ski", "Neige qui tombe", "Dîner en altitude", "Activités montagne", "Moments en famille", "Ambiance soirée", "Lever de soleil sur la neige", "Vue depuis une suite", "Expérience luxe en hiver", "Moments cosy", "Les pistes au lever du jour", "Évasion alpine"],
@@ -99,22 +106,22 @@ const ACCOUNT_VOICE = {
   BB: `The voice of unapologetic indulgence. Premium cuts, low lights, the sound of a room that knows how to have a good time. Confident, sensory, a little cinematic.`,
 };
 
-function buildFinalHashtags(account) {
-  const mandatory = MANDATORY_HASHTAGS[account] || [];
-  const allTags = Object.values(HASHTAG_BANK[account] || {}).flat();
+function buildFinalHashtags(account, hashtagBankData, mandatoryData) {
+  const bank = hashtagBankData || HASHTAG_BANK;
+  const mandatory = (mandatoryData || MANDATORY_HASHTAGS)[account] || [];
+  const allTags = Object.values(bank[account] || {}).flat();
   const pool = [...new Set(allTags)].filter(t =>
     !mandatory.map(m => m.toLowerCase()).includes(t.toLowerCase())
   );
-  // Exactly 5 total: fill with mandatory first, then random from pool
   if (mandatory.length >= 5) return mandatory.slice(0, 5);
   const needed = 5 - mandatory.length;
   const random = [...pool].sort(() => Math.random() - 0.5).slice(0, needed);
   return [...mandatory, ...random];
 }
 
-async function generateCaption(subject, account, credits) {
+async function generateCaption(subject, account, credits, hashtagBankData, mandatoryData) {
   const acc = ACCOUNTS.find(a => a.id === account);
-  const finalTags = buildFinalHashtags(account);
+  const finalTags = buildFinalHashtags(account, hashtagBankData, mandatoryData);
   const mention = account === "BB" ? "@lapogeecourchevel" : "@oetkerhotels";
   const voice = ACCOUNT_VOICE[account] || "";
 
@@ -189,63 +196,75 @@ const C = {
   orange: "#FF9500",
 };
 
-async function analyzeImageAndGenerate(imageUrl, imageBase64, account, credits) {
+async function analyzeImageAndGenerate(imageUrl, imageBase64, account, credits, hashtagBankData, mandatoryData) {
   const acc = ACCOUNTS.find(a => a.id === account);
-  const finalTags = buildFinalHashtags(account);
+  const finalTags = buildFinalHashtags(account, hashtagBankData, mandatoryData);
   const mention = account === "BB" ? "@lapogeecourchevel" : "@oetkerhotels";
   const voice = ACCOUNT_VOICE[account] || "";
 
-  const prompt = `You are an elite social media copywriter specializing in ultra-luxury hospitality.
-You write for ${acc?.name} (${account}), whose voice is:
-${voice}
+  const prompt = `You are an elite luxury hospitality copywriter for ${acc?.name} (${account}).
 
-Look at this image with the eye of a creative director, not a tourist. Identify: the mood, the light, the emotion it creates, what is implied but not shown. Use that as the foundation for both the hook and the caption.
+Voice: ${voice}
 
-Your tasks:
-1. Write a subject line (5-10 words max, in French) — what a magazine editor would write as a headline for this image.
-2. Write an Instagram caption that makes the reader FEEL something — nostalgia, desire, calm, excitement — as if they are already there or desperately want to be. The reader has just seen this image. Your words must extend that emotion, not just describe what they see.
+Analyze this image as a creative director. Identify the mood, light, and emotion implied.
 
-STRICT RULES:
-- HOOK: The first sentence must be a powerful, unexpected opening — an evocative statement, a sensory detail, or a quiet observation. Never a question. Never a cliché.
-- LENGTH: 2 to 3 sentences per language. Go to 4 only if it adds real emotional weight.
-- TONE: British elegance written in American English. Restrained but felt.
-- BANNED WORDS: luxury, unique, unforgettable, magical, breathtaking, incredible, experience, world-class, prestigious, exceptional, exclusive, perfect, stunning, amazing, wonderful, paradise, dream, ultimate, unparalleled, exquisite.
-- NO emojis. NO exclamation marks. NO hollow adjectives.
-- Write as if you have one chance to make someone stop scrolling.
+Return ONLY valid JSON with exactly these two keys:
+1. "subject": a French headline (5-10 words, magazine style)
+2. "caption": full Instagram caption in this exact format:
 
-CAPTION FORMAT (follow exactly, with ONE empty line before and after each —):
-
-[English caption — hook first, 2-3 sentences]
+[English: hook first, 2-3 sentences. British elegance, American spelling. No emojis. No exclamation marks. BANNED: luxury, unique, unforgettable, magical, breathtaking, incredible, exclusive, stunning, paradise, dream.]
 
 —
 
-[French translation — same emotional weight, not word-for-word]
+[French: same emotional weight, not word-for-word]
 
 —
-${credits ? `\n${credits}\n\n—\n` : ""}
+${credits ? `${credits}\n\n—\n` : ""}
 ${mention}
 
 ${finalTags.join(" ")}
 
-CRITICAL: Respond ONLY with this JSON object, nothing else:
-{"subject": "le sujet en français", "caption": "the full caption text exactly as formatted above"}`;
+JSON format: {"subject": "...", "caption": "..."}`;
+
 
   try {
     const res = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'vision', prompt, imageUrl, imageBase64 }),
+      body: JSON.stringify({
+        mode: 'vision',
+        prompt,
+        imageUrl: imageUrl || null,
+        imageBase64: imageBase64 || null,
+      }),
     });
     const data = await res.json();
+    console.log('[Vision] Response:', data);
+
+    if (data.error) {
+      console.error('[Vision] API error:', data.error);
+      return { subject: '', caption: '', error: data.error };
+    }
+
     const text = (data.text || '').trim();
+    console.log('[Vision] Raw text:', text);
+
+    // Greedy match — captures the full JSON object including nested content
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      return { subject: parsed.subject || '', caption: parsed.caption || '' };
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return { subject: parsed.subject || '', caption: parsed.caption || '' };
+      } catch (e) {
+        console.error('[Vision] JSON parse failed:', e);
+        // Return raw text as caption if JSON parse fails
+        return { subject: '', caption: text };
+      }
     }
     return { subject: '', caption: text };
   } catch (e) {
-    return { subject: '', caption: '' };
+    console.error('[Vision] Fetch error:', e);
+    return { subject: '', caption: '', error: e.message };
   }
 }
 const selectStyle = {
@@ -878,47 +897,58 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
       {/* Analyze image button — shown when there's an image and an account selected */}
       {(() => {
         const firstImage = (post.mediaItems || []).find(m =>
-          (m.fileData && m.fileData.startsWith("data:image")) ||
-          (m.url && (m.fileType?.startsWith("image/") || m.url.match(/\.(jpg|jpeg|png|webp|gif)/i)))
+          (m.url && (m.fileType?.startsWith("image/") || m.url.match(/\.(jpg|jpeg|png|webp|gif)/i))) ||
+          (m.fileData && m.fileData.startsWith("data:image"))
         );
         if (!firstImage || !post.account) return null;
+
+        // Warn if image has no public URL (only base64 — won't work with vision API)
+        const hasPublicUrl = firstImage.url && firstImage.url.startsWith("http");
+        const hasBase64 = firstImage.fileData && firstImage.fileData.startsWith("data:image");
+        if (!hasPublicUrl && !hasBase64) return null;
+
         return (
-          <button
-            disabled={analyzingImage || generating}
-            onClick={async () => {
-              setAnalyzingImage(true);
-              const result = await analyzeImageAndGenerate(
-                firstImage.url || null,
-                firstImage.fileData || null,
-                post.account,
-                post.credits || ""
-              );
-              if (result.subject) onUpdate("subject", result.subject);
-              if (result.caption) onUpdate("caption", result.caption);
-              setAnalyzingImage(false);
-            }}
-            style={{
-              width: "100%", padding: "10px 16px", borderRadius: 10, border: "none",
-              background: analyzingImage ? C.surfaceSecondary : `linear-gradient(135deg, ${C.indigo}, ${C.blue})`,
-              color: analyzingImage ? C.textSecondary : "#fff",
-              cursor: analyzingImage ? "default" : "pointer",
-              fontSize: 13, fontFamily: F, fontWeight: 600,
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              marginBottom: 10, transition: "all .2s",
-              boxShadow: analyzingImage ? "none" : `0 2px 12px ${C.blue}44`,
-            }}>
-            {analyzingImage ? (
-              <>
-                <span style={{ fontSize: 14 }}>⏳</span>
-                Analyse de l'image en cours...
-              </>
-            ) : (
-              <>
-                <span style={{ fontSize: 14 }}>✨</span>
-                Analyser l'image et générer la caption
-              </>
+          <div style={{ marginBottom: 10 }}>
+            {!hasPublicUrl && hasBase64 && (
+              <div style={{ padding: "8px 12px", borderRadius: 8, background: `${C.orange}15`, border: `1px solid ${C.orange}40`, fontSize: 11, color: C.orange, fontFamily: F, marginBottom: 6 }}>
+                ⚠️ Cette image est stockée localement. Pour l'analyse IA, choisis plutôt une image depuis la Librairie (qui a une URL publique).
+              </div>
             )}
-          </button>
+            <button
+              disabled={analyzingImage || generating || (!hasPublicUrl && !hasBase64)}
+              onClick={async () => {
+                setAnalyzingImage(true);
+                const result = await analyzeImageAndGenerate(
+                  hasPublicUrl ? firstImage.url : null,
+                  hasBase64 ? firstImage.fileData : null,
+                  post.account,
+                  post.credits || ""
+                );
+                if (result.error) {
+                  alert(`Erreur lors de l'analyse : ${result.error}`);
+                } else {
+                  if (result.subject) onUpdate("subject", result.subject);
+                  if (result.caption) onUpdate("caption", result.caption);
+                }
+                setAnalyzingImage(false);
+              }}
+              style={{
+                width: "100%", padding: "10px 16px", borderRadius: 10, border: "none",
+                background: analyzingImage ? C.surfaceSecondary : `linear-gradient(135deg, ${C.indigo}, ${C.blue})`,
+                color: analyzingImage ? C.textSecondary : "#fff",
+                cursor: analyzingImage ? "default" : "pointer",
+                fontSize: 13, fontFamily: F, fontWeight: 600,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                transition: "all .2s",
+                boxShadow: analyzingImage ? "none" : `0 2px 12px ${C.blue}44`,
+              }}>
+              {analyzingImage ? (
+                <><span style={{ fontSize: 14 }}>⏳</span> Analyse en cours...</>
+              ) : (
+                <><span style={{ fontSize: 14 }}>✨</span> Analyser l'image et générer la caption</>
+              )}
+            </button>
+          </div>
         );
       })()}
       {post.caption && (
@@ -944,11 +974,12 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
 
 function DayView({ year, month, day, dateKey, dayName, posts, setPosts, onClose }) {
   const [generatingKey, setGeneratingKey] = useState(null);
+  const { hashtagBank: hBank, mandatoryHashtags: mTags } = useContext(HashtagContext);
   const handleGenerate = async (index) => {
     const post = posts[dateKey]?.[index];
     if (!post?.subject || !post?.account) return;
     setGeneratingKey(index);
-    const caption = await generateCaption(post.subject, post.account, post.credits || "");
+    const caption = await generateCaption(post.subject, post.account, post.credits || "", hBank, mTags);
     setPosts(prev => { const u = { ...prev }; const dp = [...(u[dateKey] || [])]; dp[index] = { ...dp[index], caption }; u[dateKey] = dp; return u; });
     setGeneratingKey(null);
   };
@@ -1048,36 +1079,142 @@ function WeekView({ year, month, weekDays, posts, setPosts }) {
   );
 }
 
-function HashtagBank() {
+function HashtagBank({ hashtagBank, setHashtagBank, mandatoryHashtags, setMandatoryHashtags }) {
   const [sel, setSel] = useState("APG");
-  const bank = HASHTAG_BANK[sel];
   const [copied, setCopied] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [newTag, setNewTag] = useState("");
+  const [newMandatory, setNewMandatory] = useState("");
+
+  const bank = hashtagBank[sel] || { "Tous": [] };
+  const mandatory = mandatoryHashtags[sel] || [];
+  const allTags = Object.values(bank).flat();
+
+  const addTag = () => {
+    const tag = newTag.trim().startsWith("#") ? newTag.trim() : `#${newTag.trim()}`;
+    if (!tag || tag === "#") return;
+    if (allTags.includes(tag)) return;
+    setHashtagBank(prev => ({
+      ...prev,
+      [sel]: { ...prev[sel], "Tous": [...(prev[sel]?.["Tous"] || []), tag] }
+    }));
+    setNewTag("");
+  };
+
+  const removeTag = (tag) => {
+    setHashtagBank(prev => ({
+      ...prev,
+      [sel]: { ...prev[sel], "Tous": (prev[sel]?.["Tous"] || []).filter(t => t !== tag) }
+    }));
+  };
+
+  const addMandatory = () => {
+    const tag = newMandatory.trim().startsWith("#") ? newMandatory.trim() : `#${newMandatory.trim()}`;
+    if (!tag || tag === "#") return;
+    if (mandatory.includes(tag)) return;
+    setMandatoryHashtags(prev => ({ ...prev, [sel]: [...(prev[sel] || []), tag] }));
+    setNewMandatory("");
+  };
+
+  const removeMandatory = (tag) => {
+    setMandatoryHashtags(prev => ({ ...prev, [sel]: (prev[sel] || []).filter(t => t !== tag) }));
+  };
+
+  const acc = ACCOUNTS.find(a => a.id === sel);
+
   return (
     <div style={{ ...cardStyle, padding: 20, marginTop: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: C.text, letterSpacing: 1, textTransform: "uppercase", fontFamily: F, marginBottom: 12 }}>Banque de hashtags</div>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: C.textSecondary, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: F }}>
+          Banque de hashtags
+        </div>
+        <button onClick={() => setEditMode(e => !e)}
+          style={{ padding: "7px 16px", borderRadius: 10, border: `1px solid ${editMode ? C.green : C.border}`, background: editMode ? C.green : C.surfaceSecondary, color: editMode ? "#fff" : C.textSecondary, cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 600, transition: "all .2s" }}>
+          {editMode ? "✓ Terminer" : "✏️ Modifier"}
+        </button>
+      </div>
+
+      {/* Account selector */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {ACCOUNTS.map(a => (
-          <button key={a.id} onClick={() => setSel(a.id)} style={{ padding: "6px 16px", borderRadius: 8, border: `1px solid ${a.color}`, background: sel === a.id ? a.color : "#fff", color: sel === a.id ? "#fff" : a.color, cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 600, letterSpacing: 0.5, transition: "all .15s" }}>{a.id}</button>
+          <button key={a.id} onClick={() => setSel(a.id)}
+            style={{ ...pillBtn(sel === a.id, a.color), fontSize: 12 }}>{a.id}</button>
         ))}
       </div>
-      <div style={{ fontSize: 11, color: C.textSecondary, marginBottom: 12, fontFamily: F }}>{ACCOUNTS.find(a => a.id === sel)?.name}</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
-        {Object.entries(bank).map(([cat, tags]) => (
-          <div key={cat} style={{ background: C.surfaceSecondary, borderRadius: 10, padding: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: C.text, fontFamily: F, letterSpacing: 0.5, textTransform: "uppercase" }}>{cat}</span>
-              <button onClick={() => { navigator.clipboard.writeText(tags.join(" ")); setCopied(cat); setTimeout(() => setCopied(null), 1500); }}
-                style={{ fontSize: 9, padding: "2px 6px", borderRadius: 3, border: "1px solid #D0D5DD", background: copied === cat ? C.green : "#fff", color: copied === cat ? "#fff" : C.textSecondary, cursor: "pointer", fontFamily: F, transition: "all .2s" }}>
-                {copied === cat ? "Copié !" : "Copier tout"}
-              </button>
+      <div style={{ fontSize: 12, color: C.textSecondary, marginBottom: 16, fontFamily: F }}>{acc?.name}</div>
+
+      {/* Mandatory hashtags */}
+      <div style={{ marginBottom: 20, padding: 14, borderRadius: 12, background: `${C.blue}06`, border: `1px solid ${C.blue}20` }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.blue, fontFamily: F, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 10 }}>
+          Hashtags obligatoires — inclus dans toutes les captions ({mandatory.length}/5 max)
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: editMode ? 10 : 0 }}>
+          {mandatory.map(tag => (
+            <div key={tag} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 20, background: C.blue, color: "#fff" }}>
+              <span style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 600 }}>{tag}</span>
+              {editMode && (
+                <span onClick={() => removeMandatory(tag)}
+                  style={{ cursor: "pointer", fontSize: 14, lineHeight: 1, opacity: 0.7 }}
+                  onMouseEnter={e => e.target.style.opacity = "1"}
+                  onMouseLeave={e => e.target.style.opacity = "0.7"}>×</span>
+              )}
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {tags.map(tag => (
-                <span key={tag} onClick={() => navigator.clipboard.writeText(tag)} style={{ padding: "2px 8px", borderRadius: 6, background: "#fff", border: "1px solid #E0E0E0", fontSize: 11, color: "#555", cursor: "pointer", fontFamily: "monospace", transition: "all .1s" }} title="Cliquer pour copier">{tag}</span>
-              ))}
-            </div>
+          ))}
+          {mandatory.length === 0 && <span style={{ fontSize: 12, color: C.textTertiary, fontFamily: F, fontStyle: "italic" }}>Aucun hashtag obligatoire</span>}
+        </div>
+        {editMode && mandatory.length < 5 && (
+          <div style={{ display: "flex", gap: 8 }}>
+            <input value={newMandatory} onChange={e => setNewMandatory(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && addMandatory()}
+              placeholder="#hashtag obligatoire" style={{ ...inputStyle, flex: 1, fontSize: 12 }} />
+            <button onClick={addMandatory}
+              style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: C.blue, color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 600 }}>
+              Ajouter
+            </button>
           </div>
-        ))}
+        )}
+      </div>
+
+      {/* Tag bank */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.textSecondary, fontFamily: F, letterSpacing: 0.5, textTransform: "uppercase" }}>
+            Banque ({allTags.length} hashtags)
+          </div>
+          <button onClick={() => { navigator.clipboard.writeText(allTags.join(" ")); setCopied("all"); setTimeout(() => setCopied(null), 1500); }}
+            style={{ fontSize: 11, padding: "4px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: copied === "all" ? C.green : C.surface, color: copied === "all" ? "#fff" : C.textSecondary, cursor: "pointer", fontFamily: F, transition: "all .2s" }}>
+            {copied === "all" ? "Copié !" : "Copier tout"}
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: editMode ? 14 : 0 }}>
+          {allTags.map(tag => (
+            <div key={tag} style={{ display: "flex", alignItems: "center", gap: 3, padding: editMode ? "3px 6px 3px 10px" : "4px 10px", borderRadius: 20, background: C.surfaceSecondary, border: `1px solid ${C.border}`, cursor: editMode ? "default" : "pointer", transition: "all .15s" }}
+              onClick={() => !editMode && (navigator.clipboard.writeText(tag), setCopied(tag), setTimeout(() => setCopied(null), 1500))}>
+              <span style={{ fontSize: 12, fontFamily: "monospace", color: copied === tag ? C.blue : C.text }}>{copied === tag ? "✓" : tag}</span>
+              {editMode && (
+                <span onClick={() => removeTag(tag)}
+                  style={{ cursor: "pointer", fontSize: 14, color: C.textTertiary, lineHeight: 1, marginLeft: 2 }}
+                  onMouseEnter={e => e.target.style.color = C.red}
+                  onMouseLeave={e => e.target.style.color = C.textTertiary}>×</span>
+              )}
+            </div>
+          ))}
+          {allTags.length === 0 && <span style={{ fontSize: 12, color: C.textTertiary, fontFamily: F, fontStyle: "italic" }}>Aucun hashtag dans la banque</span>}
+        </div>
+
+        {editMode && (
+          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+            <input value={newTag} onChange={e => setNewTag(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && addTag()}
+              placeholder="#nouveau hashtag" style={{ ...inputStyle, flex: 1, fontSize: 12 }} />
+            <button onClick={addTag}
+              style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: C.blue, color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 600 }}>
+              Ajouter
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1306,13 +1443,17 @@ function Archive({ posts }) {
 }
 
 // ── Library (full page) ──────────────────────────────────────────────────────
-function Library({ library, setLibrary, posts, setPosts, year, month, accountSettings }) {
+function Library({ library, setLibrary, posts, setPosts, year, month, accountSettings, subfolders, setSubfolders }) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [search, setSearch] = useState("");
   const [lightbox, setLightbox] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState("all");
-  const [uploadAccount, setUploadAccount] = useState("all");
+  const [selectedSubfolder, setSelectedSubfolder] = useState("all");
+  const [uploadAccount, setUploadAccount] = useState("APG");
+  const [uploadSubfolder, setUploadSubfolder] = useState("all");
+  const [newSubfolderName, setNewSubfolderName] = useState("");
+  const [showAddSubfolder, setShowAddSubfolder] = useState(false);
   const fileInputRef = useRef(null);
 
   // ── Batch mode state ────────────────────────────────────────────────────────
@@ -1330,19 +1471,24 @@ function Library({ library, setLibrary, posts, setPosts, year, month, accountSet
     const total = files.length;
     const added = [];
     const account = uploadAccount === "all" ? null : uploadAccount;
+    const subfolder = uploadSubfolder === "all" ? null : uploadSubfolder;
+    const cloudinaryFolder = account
+      ? (subfolder ? `oh_library/${account}/${subfolder}` : `oh_library/${account}`)
+      : "oh_library";
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const fd = new FormData();
       fd.append("file", file);
       fd.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-      fd.append("folder", account ? `oh_library/${account}` : "oh_library");
+      fd.append("folder", cloudinaryFolder);
       const xhr = new XMLHttpRequest();
       await new Promise((res, rej) => {
         xhr.upload.onprogress = e => { if (e.lengthComputable) setProgress(Math.round(((i + e.loaded / e.total) / total) * 100)); };
         xhr.onload = async () => {
           if (xhr.status === 200) {
             const r = JSON.parse(xhr.responseText);
-            const entry = { url: r.secure_url, publicId: r.public_id, name: file.name, fileType: file.type, account: account || null, uploadedAt: new Date().toISOString() };
+            const entry = { url: r.secure_url, publicId: r.public_id, name: file.name, fileType: file.type, account: account || null, subfolder: subfolder || null, uploadedAt: new Date().toISOString() };
             if (db) { const ref = await addDoc(collection(db, "library"), entry); added.push({ id: ref.id, ...entry }); }
             else added.push({ id: Date.now() + i, ...entry });
             res();
@@ -1357,6 +1503,20 @@ function Library({ library, setLibrary, posts, setPosts, year, month, accountSet
     setUploading(false); setProgress(0);
   };
 
+  const addSubfolder = () => {
+    const name = newSubfolderName.trim();
+    if (!name || uploadAccount === "all") return;
+    const current = subfolders[uploadAccount] || [];
+    if (current.includes(name)) return;
+    setSubfolders(prev => ({ ...prev, [uploadAccount]: [...current, name] }));
+    setNewSubfolderName("");
+    setShowAddSubfolder(false);
+  };
+
+  const removeSubfolder = (account, folder) => {
+    setSubfolders(prev => ({ ...prev, [account]: (prev[account] || []).filter(f => f !== folder) }));
+  };
+
   const handleDelete = async (item) => {
     if (!window.confirm("Supprimer de la librairie ?")) return;
     if (db) { try { await deleteDoc(doc(db, "library", item.id)); } catch {} }
@@ -1365,9 +1525,11 @@ function Library({ library, setLibrary, posts, setPosts, year, month, accountSet
 
   const filtered = library
     .filter(x => selectedAccount === "all" ? true : (x.account === selectedAccount))
+    .filter(x => selectedSubfolder === "all" ? true : (x.subfolder === selectedSubfolder))
     .filter(x => (x.name || "").toLowerCase().includes(search.toLowerCase()));
 
   const countFor = (id) => id === "all" ? library.length : library.filter(x => x.account === id).length;
+  const currentSubfolders = selectedAccount !== "all" ? (subfolders[selectedAccount] || []) : [];
 
   // ── Batch helpers ────────────────────────────────────────────────────────────
 
@@ -1662,32 +1824,100 @@ function Library({ library, setLibrary, posts, setPosts, year, month, accountSet
       </div>
 
       {/* Account tabs */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-        <button onClick={() => setSelectedAccount("all")} style={{ ...pillBtn(selectedAccount === "all"), fontSize: 12 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+        <button onClick={() => { setSelectedAccount("all"); setSelectedSubfolder("all"); }} style={{ ...pillBtn(selectedAccount === "all"), fontSize: 12 }}>
           Tous ({countFor("all")})
         </button>
         {ACCOUNTS.map(a => (
-          <button key={a.id} onClick={() => setSelectedAccount(a.id)} style={{ ...pillBtn(selectedAccount === a.id, a.color), fontSize: 12 }}>
+          <button key={a.id} onClick={() => { setSelectedAccount(a.id); setSelectedSubfolder("all"); }} style={{ ...pillBtn(selectedAccount === a.id, a.color), fontSize: 12 }}>
             {a.id} ({countFor(a.id)})
           </button>
         ))}
       </div>
 
-      {/* Upload zone */}
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12, color: C.textSecondary, fontFamily: F }}>Uploader pour :</span>
-        <select value={uploadAccount} onChange={e => setUploadAccount(e.target.value)} style={{ ...selectStyle, fontSize: 12 }}>
-          <option value="all">— Tous les comptes —</option>
-          {ACCOUNTS.map(a => <option key={a.id} value={a.id}>{a.id} — {a.name}</option>)}
-        </select>
+      {/* Subfolder tabs — shown when an account is selected */}
+      {selectedAccount !== "all" && currentSubfolders.length > 0 && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap", paddingLeft: 8, borderLeft: `3px solid ${ACCOUNTS.find(a => a.id === selectedAccount)?.color || C.border}` }}>
+          <button onClick={() => setSelectedSubfolder("all")}
+            style={{ padding: "3px 12px", borderRadius: 20, border: `1px solid ${C.border}`, background: selectedSubfolder === "all" ? C.text : "transparent", color: selectedSubfolder === "all" ? "#fff" : C.textSecondary, cursor: "pointer", fontSize: 11, fontFamily: F, fontWeight: 500 }}>
+            Tous
+          </button>
+          {currentSubfolders.map(sf => (
+            <button key={sf} onClick={() => setSelectedSubfolder(sf)}
+              style={{ padding: "3px 12px", borderRadius: 20, border: `1px solid ${C.border}`, background: selectedSubfolder === sf ? C.text : "transparent", color: selectedSubfolder === sf ? "#fff" : C.textSecondary, cursor: "pointer", fontSize: 11, fontFamily: F, fontWeight: 500 }}>
+              {sf}
+            </button>
+          ))}
+        </div>
+      )}
+      {selectedAccount !== "all" && currentSubfolders.length === 0 && (
+        <div style={{ marginBottom: 16 }} />
+      )}
+
+      {/* Upload controls */}
+      <div style={{ padding: 14, borderRadius: 12, background: C.surfaceSecondary, border: `1px solid ${C.border}`, marginBottom: 14 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: C.textSecondary, fontFamily: F, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Uploader des images</div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 12, color: C.textSecondary, fontFamily: F }}>Compte :</span>
+            <select value={uploadAccount} onChange={e => { setUploadAccount(e.target.value); setUploadSubfolder("all"); }} style={{ ...selectStyle, fontSize: 12 }}>
+              {ACCOUNTS.map(a => <option key={a.id} value={a.id}>{a.id}</option>)}
+            </select>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 12, color: C.textSecondary, fontFamily: F }}>Dossier :</span>
+            <select value={uploadSubfolder} onChange={e => setUploadSubfolder(e.target.value)} style={{ ...selectStyle, fontSize: 12 }}>
+              <option value="all">— Racine —</option>
+              {(subfolders[uploadAccount] || []).map(sf => <option key={sf} value={sf}>{sf}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Add subfolder */}
+        {showAddSubfolder ? (
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <input value={newSubfolderName} onChange={e => setNewSubfolderName(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && addSubfolder()}
+              placeholder="Nom du sous-dossier" style={{ ...inputStyle, flex: 1, fontSize: 12 }} autoFocus />
+            <button onClick={addSubfolder}
+              style={{ padding: "7px 14px", borderRadius: 10, border: "none", background: C.blue, color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 600 }}>
+              Créer
+            </button>
+            <button onClick={() => { setShowAddSubfolder(false); setNewSubfolderName(""); }}
+              style={{ padding: "7px 12px", borderRadius: 10, border: `1px solid ${C.border}`, background: "transparent", color: C.textSecondary, cursor: "pointer", fontSize: 12, fontFamily: F }}>
+              Annuler
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setShowAddSubfolder(true)}
+            style={{ fontSize: 11, color: C.blue, background: "none", border: "none", cursor: "pointer", fontFamily: F, fontWeight: 500, marginBottom: 10, padding: 0 }}>
+            + Créer un nouveau sous-dossier pour {uploadAccount}
+          </button>
+        )}
+
+        {/* Existing subfolders with delete option */}
+        {(subfolders[uploadAccount] || []).length > 0 && (
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {(subfolders[uploadAccount] || []).map(sf => (
+              <div key={sf} style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 8px 2px 10px", borderRadius: 20, background: C.surface, border: `1px solid ${C.border}`, fontSize: 11, fontFamily: F, color: C.textSecondary }}>
+                {sf}
+                <span onClick={() => removeSubfolder(uploadAccount, sf)}
+                  style={{ cursor: "pointer", fontSize: 13, color: C.textTertiary, lineHeight: 1 }}
+                  onMouseEnter={e => e.target.style.color = C.red}
+                  onMouseLeave={e => e.target.style.color = C.textTertiary}>×</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* Drop zone */}
       <div
         onClick={() => !uploading && fileInputRef.current?.click()}
         onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = C.blue; }}
         onDragLeave={e => { e.currentTarget.style.borderColor = C.border; }}
         onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = C.border; handleUpload(Array.from(e.dataTransfer.files)); }}
-        style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: "22px 20px", textAlign: "center", cursor: uploading ? "default" : "pointer", background: C.surfaceSecondary, marginBottom: 16, transition: "all .2s" }}>
+        style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: "20px", textAlign: "center", cursor: uploading ? "default" : "pointer", background: C.surfaceSecondary, marginBottom: 16, transition: "all .2s" }}>
         {uploading ? (
           <div>
             <div style={{ fontSize: 13, color: C.text, fontFamily: F, marginBottom: 8 }}>Upload en cours... {progress}%</div>
@@ -1697,9 +1927,9 @@ function Library({ library, setLibrary, posts, setPosts, year, month, accountSet
           </div>
         ) : (
           <>
-            <div style={{ fontSize: 24, marginBottom: 4 }}>📁</div>
+            <div style={{ fontSize: 22, marginBottom: 4 }}>📁</div>
             <div style={{ fontSize: 13, color: C.text, fontFamily: F, fontWeight: 500 }}>
-              Cliquer ou glisser-déposer{uploadAccount !== "all" ? ` — ${uploadAccount}` : ""}
+              Cliquer ou glisser-déposer → <strong>{uploadAccount}</strong>{uploadSubfolder !== "all" ? ` / ${uploadSubfolder}` : ""}
             </div>
             <div style={{ fontSize: 11, color: C.textSecondary, fontFamily: F, marginTop: 2 }}>JPG, PNG, WEBP, GIF, MP4</div>
           </>
@@ -1730,7 +1960,10 @@ function Library({ library, setLibrary, posts, setPosts, year, month, accountSet
               )}
               <div style={{ padding: "5px 6px", background: C.surface, borderTop: `1px solid ${C.border}` }}>
                 <div style={{ fontSize: 9, color: C.textTertiary, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
-                {acc && <div style={{ fontSize: 9, fontWeight: 700, color: acc.color, fontFamily: F, marginTop: 1 }}>{acc.id}</div>}
+                <div style={{ display: "flex", gap: 4, marginTop: 2, flexWrap: "wrap" }}>
+                  {acc && <div style={{ fontSize: 9, fontWeight: 700, color: acc.color, fontFamily: F }}>{acc.id}</div>}
+                  {item.subfolder && <div style={{ fontSize: 9, color: C.textTertiary, fontFamily: F }}>/ {item.subfolder}</div>}
+                </div>
               </div>
               <button onClick={() => handleDelete(item)}
                 style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.5)", color: "#fff", cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
@@ -1755,6 +1988,7 @@ function Library({ library, setLibrary, posts, setPosts, year, month, accountSet
 // ── LibraryPicker (modal inside PostEditor) ──────────────────────────────────
 function LibraryPicker({ onSelect, onClose, accountHint }) {
   const { library } = useContext(LibraryContext);
+  const { hashtagBank: hBank, mandatoryHashtags: mTags } = useContext(HashtagContext);
   const [search, setSearch] = useState("");
   const [filterAcc, setFilterAcc] = useState(accountHint || "all");
 
@@ -2046,6 +2280,9 @@ export default function App() {
     HDCER: { isOpen: true, postsPerWeek: 3, closingDate: "", openingDate: "" },
     BB:    { isOpen: true, postsPerWeek: 3, closingDate: "", openingDate: "" },
   });
+  const [hashtagBank, setHashtagBank] = useState(HASHTAG_BANK);
+  const [mandatoryHashtags, setMandatoryHashtags] = useState(MANDATORY_HASHTAGS);
+  const [subfolders, setSubfolders] = useState(DEFAULT_SUBFOLDERS);
   // Keep openStatus as a derived alias for backwards compat (Récap, etc.)
   const openStatus = Object.fromEntries(ACCOUNTS.map(a => [a.id, accountSettings[a.id]?.isOpen !== false]));
   const [selectedDay, setSelectedDay] = useState(null);
@@ -2072,14 +2309,20 @@ export default function App() {
         try {
           const postsDoc = await getDoc(doc(db, "calendar", "posts"));
           const settingsDoc = await getDoc(doc(db, "calendar", "accountSettings"));
+          const hashtagDoc = await getDoc(doc(db, "calendar", "hashtagBank"));
+          const mandatoryDoc = await getDoc(doc(db, "calendar", "mandatoryHashtags"));
+          const subfoldersDoc = await getDoc(doc(db, "calendar", "subfolders"));
           if (postsDoc.exists() && postsDoc.data().data) { skipSync.current = true; setPosts(postsDoc.data().data); setTimeout(() => { skipSync.current = false; }, 100); }
           if (settingsDoc.exists() && settingsDoc.data().data) { skipSync.current = true; setAccountSettings(settingsDoc.data().data); setTimeout(() => { skipSync.current = false; }, 100); }
+          if (hashtagDoc.exists() && hashtagDoc.data().data) { skipSync.current = true; setHashtagBank(hashtagDoc.data().data); setTimeout(() => { skipSync.current = false; }, 100); }
+          if (mandatoryDoc.exists() && mandatoryDoc.data().data) { skipSync.current = true; setMandatoryHashtags(mandatoryDoc.data().data); setTimeout(() => { skipSync.current = false; }, 100); }
+          if (subfoldersDoc.exists() && subfoldersDoc.data().data) { skipSync.current = true; setSubfolders(subfoldersDoc.data().data); setTimeout(() => { skipSync.current = false; }, 100); }
         } catch (e) { console.error("Firestore load error", e); }
         setLoaded(true);
       };
       load();
     } else {
-      try { const saved = localStorage.getItem("editorial-cal-v2"); if (saved) { const data = JSON.parse(saved); if (data.posts) setPosts(data.posts); if (data.accountSettings) setAccountSettings(data.accountSettings); } } catch (e) {}
+      try { const saved = localStorage.getItem("editorial-cal-v2"); if (saved) { const data = JSON.parse(saved); if (data.posts) setPosts(data.posts); if (data.accountSettings) setAccountSettings(data.accountSettings); if (data.hashtagBank) setHashtagBank(data.hashtagBank); if (data.mandatoryHashtags) setMandatoryHashtags(data.mandatoryHashtags); } } catch (e) {}
       setLoaded(true);
     }
   }, []);
@@ -2090,10 +2333,13 @@ export default function App() {
     if (db) {
       setDoc(doc(db, "calendar", "posts"), { data: posts });
       setDoc(doc(db, "calendar", "accountSettings"), { data: accountSettings });
+      setDoc(doc(db, "calendar", "hashtagBank"), { data: hashtagBank });
+      setDoc(doc(db, "calendar", "mandatoryHashtags"), { data: mandatoryHashtags });
+      setDoc(doc(db, "calendar", "subfolders"), { data: subfolders });
     } else {
-      try { localStorage.setItem("editorial-cal-v2", JSON.stringify({ posts, accountSettings })); } catch (e) {}
+      try { localStorage.setItem("editorial-cal-v2", JSON.stringify({ posts, accountSettings, hashtagBank, mandatoryHashtags, subfolders })); } catch (e) {}
     }
-  }, [posts, accountSettings, loaded]);
+  }, [posts, accountSettings, hashtagBank, mandatoryHashtags, subfolders, loaded]);
 
   const weeks = getWeeksOfMonth(year, month);
   const monthPrefix = `${year}-${String(month+1).padStart(2,"0")}`;
@@ -2276,11 +2522,11 @@ export default function App() {
 
       {view === "preview" && <FeedPreview posts={posts} />}
 
-      {view === "hashtags" && <HashtagBank />}
+      {view === "hashtags" && <HashtagBank hashtagBank={hashtagBank} setHashtagBank={setHashtagBank} mandatoryHashtags={mandatoryHashtags} setMandatoryHashtags={setMandatoryHashtags} />}
 
       {view === "archive" && <Archive posts={posts} />}
 
-      {view === "library" && <Library library={library} setLibrary={setLibrary} posts={posts} setPosts={setPosts} year={year} month={month} accountSettings={accountSettings} />}
+      {view === "library" && <Library library={library} setLibrary={setLibrary} posts={posts} setPosts={setPosts} year={year} month={month} accountSettings={accountSettings} subfolders={subfolders} setSubfolders={setSubfolders} />}
 
       {view === "guide" && <Guide />}
     </div>
