@@ -261,18 +261,31 @@ Return ONLY valid JSON: {"subject": "le sujet en français", "caption": "the ful
     const text = (data.text || '').trim();
     console.log('[Vision] Raw text:', text);
 
-    // Greedy match — captures the full JSON object including nested content
+    // Strategy 1: greedy JSON match
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
         const parsed = JSON.parse(jsonMatch[0]);
-        return { subject: parsed.subject || '', caption: parsed.caption || '' };
+        if (parsed.subject || parsed.caption) {
+          return { subject: parsed.subject || '', caption: parsed.caption || '' };
+        }
       } catch (e) {
-        console.error('[Vision] JSON parse failed:', e);
-        // Return raw text as caption if JSON parse fails
-        return { subject: '', caption: text };
+        console.warn('[Vision] JSON parse failed, trying fallback:', e.message);
       }
     }
+
+    // Strategy 2: extract subject and caption from plain text response
+    // Model may have returned text without JSON wrapping
+    const subjectMatch = text.match(/"subject"\s*:\s*"([^"]+)"/);
+    const captionMatch = text.match(/"caption"\s*:\s*"([\s\S]+?)(?:"\s*\}|"\s*$)/);
+    if (subjectMatch || captionMatch) {
+      return {
+        subject: subjectMatch?.[1] || '',
+        caption: captionMatch?.[1]?.replace(/\\n/g, '\n') || '',
+      };
+    }
+
+    // Strategy 3: return raw text as caption
     return { subject: '', caption: text };
   } catch (e) {
     console.error('[Vision] Fetch error:', e);
