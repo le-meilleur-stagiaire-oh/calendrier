@@ -23,8 +23,6 @@ const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET |
 
 // Library context — shared across PostEditor instances
 const LibraryContext = createContext({ library: [], setLibrary: () => {} });
-// Hashtag context — shared across PostEditor instances
-const HashtagContext = createContext({ hashtagBank: HASHTAG_BANK, mandatoryHashtags: MANDATORY_HASHTAGS });
 
 const ACCOUNTS = [
   { id: "APG", name: "L'Apogée Courchevel", color: "#7B2D3B", light: "#F5E6E9" },
@@ -65,6 +63,9 @@ const MANDATORY_HASHTAGS = {
   HDCER: ["#hotelducapedenroc", "#oetkerhotels"],
   BB: [],
 };
+
+// Hashtag context — declared after HASHTAG_BANK and MANDATORY_HASHTAGS
+const HashtagContext = createContext({ hashtagBank: HASHTAG_BANK, mandatoryHashtags: MANDATORY_HASHTAGS });
 
 const DEFAULT_SUBFOLDERS = {
   APG:   ["Extérieur", "Intérieur", "Chambres", "Chalets", "F&B", "Cuisine", "Lifestyle"],
