@@ -204,29 +204,31 @@ async function analyzeImageAndGenerate(imageUrl, imageBase64, account, credits, 
   const mention = account === "BB" ? "@lapogeecourchevel" : "@oetkerhotels";
   const voice = ACCOUNT_VOICE[account] || "";
 
-  const prompt = `You are an elite luxury hospitality copywriter for ${acc?.name} (${account}).
+  const captionFormat = [
+    "[English: hook first, 2-3 sentences. British elegance, American spelling. No emojis. No exclamation marks. BANNED: luxury, unique, unforgettable, magical, breathtaking, incredible, exclusive, stunning, paradise, dream.]",
+    "",
+    "\u2014",
+    "",
+    "[French: same emotional weight, not word-for-word]",
+    "",
+    "\u2014",
+    credits ? `${credits}\n\n\u2014` : "",
+    mention,
+    "",
+    finalTags.join(" "),
+  ].filter(l => l !== undefined).join("\n");
+
+  const prompt = `You are an elite luxury hospitality copywriter for ${acc?.name || account} (${account}).
 
 Voice: ${voice}
 
 Analyze this image as a creative director. Identify the mood, light, and emotion implied.
 
-Return ONLY valid JSON with exactly these two keys:
-1. "subject": a French headline (5-10 words, magazine style)
-2. "caption": full Instagram caption in this exact format:
+Return ONLY valid JSON with exactly two keys: "subject" (a French headline, 5-10 words, magazine style) and "caption" (the full Instagram caption following this format):
 
-[English: hook first, 2-3 sentences. British elegance, American spelling. No emojis. No exclamation marks. BANNED: luxury, unique, unforgettable, magical, breathtaking, incredible, exclusive, stunning, paradise, dream.]
+${captionFormat}
 
-—
-
-[French: same emotional weight, not word-for-word]
-
-—
-${credits ? `${credits}\n\n—\n` : ""}
-${mention}
-
-${finalTags.join(" ")}
-
-JSON format: {"subject": "...", "caption": "..."}`;
+Respond with JSON only: {"subject": "...", "caption": "..."}`;
 
 
   try {
