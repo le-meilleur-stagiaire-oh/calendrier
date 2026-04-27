@@ -205,31 +205,38 @@ async function analyzeImageAndGenerate(imageUrl, imageBase64, account, credits, 
   const mention = account === "BB" ? "@lapogeecourchevel" : "@oetkerhotels";
   const voice = ACCOUNT_VOICE[account] || "";
 
-  const captionFormat = [
-    "[English: hook first, 2-3 sentences. British elegance, American spelling. No emojis. No exclamation marks. BANNED: luxury, unique, unforgettable, magical, breathtaking, incredible, exclusive, stunning, paradise, dream.]",
-    "",
-    "\u2014",
-    "",
-    "[French: same emotional weight, not word-for-word]",
-    "",
-    "\u2014",
-    credits ? `${credits}\n\n\u2014` : "",
-    mention,
-    "",
-    finalTags.join(" "),
-  ].filter(l => l !== undefined).join("\n");
+  const prompt = `You are an elite social media copywriter specializing in ultra-luxury hospitality.
+You write for ${acc?.name || account} (${account}), whose voice is:
+${voice}
 
-  const prompt = `You are an elite luxury hospitality copywriter for ${acc?.name || account} (${account}).
+Look at this image with the eye of a creative director. Identify the mood, the light, the emotion it creates, what is implied but not shown.
 
-Voice: ${voice}
+Your tasks:
+1. Write a subject line in French (5-10 words, magazine headline style).
+2. Write an Instagram caption that makes the reader FEEL something — nostalgia, desire, calm, excitement — as if they are already there. Your words must extend the emotion of the image, not just describe it.
 
-Analyze this image as a creative director. Identify the mood, light, and emotion implied.
+STRICT RULES:
+- HOOK: The first sentence must be a powerful, unexpected opening — an evocative statement, a sensory detail, or a quiet observation. Never a question. Never a cliché.
+- LENGTH: 2 to 3 sentences per language. Go to 4 only if it adds real emotional weight.
+- TONE: British elegance written in American English. Restrained but felt.
+- BANNED WORDS: luxury, unique, unforgettable, magical, breathtaking, incredible, experience, world-class, prestigious, exceptional, exclusive, perfect, stunning, amazing, wonderful, paradise, dream, ultimate, unparalleled, exquisite.
+- NO emojis. NO exclamation marks. NO hollow adjectives.
+${credits ? `- Credits: ${credits}` : ""}
 
-Return ONLY valid JSON with exactly two keys: "subject" (a French headline, 5-10 words, magazine style) and "caption" (the full Instagram caption following this format):
+The caption must follow this EXACT format:
 
-${captionFormat}
+[English caption — hook first, 2-3 sentences]
 
-Respond with JSON only: {"subject": "...", "caption": "..."}`;
+—
+
+[French translation — same emotional weight, not word-for-word]
+
+—
+${credits ? `${credits}\n\n—\n` : ""}${mention}
+
+${finalTags.join(" ")}
+
+Return ONLY valid JSON: {"subject": "le sujet en français", "caption": "the full caption text following the format above"}`;
 
 
   try {
