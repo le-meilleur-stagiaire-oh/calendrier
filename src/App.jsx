@@ -72,6 +72,8 @@ const DEFAULT_SUBFOLDERS = {
   HDCER: ["Extérieur", "Intérieur", "Chambres", "Villas", "F&B", "Cuisine", "Lifestyle"],
   BB:    ["F&B", "Cuisine", "Lifestyle"],
 };
+
+const SUBJECT_BANK = {
   HDCER: ["Lever de soleil sur la mer", "Coucher de soleil iconique", "Une journée à l'hôtel", "Les plus belles vues", "Room tour d'une suite", "Les détails du luxe", "La piscine mythique", "Moments hors saison", "Ambiance Riviera", "Terrasse avec vue mer", "Petit-déjeuner face à la mer", "Moments de calme absolu", "Les coins cachés", "Arrivée d'un client", "Expérience client complète", "Service en chambre", "Les jardins en fleurs", "L'hôtel vu du ciel", "Moments golden hour", "Ambiance dolce vita"],
   CSM: ["Vue panoramique", "Moments de détente au spa", "Une journée slow luxury", "Les villas privées", "Petit-déjeuner avec vue", "Coucher de soleil sur les collines", "Ambiance nature", "Les jardins du domaine", "Moments de silence", "Dîner en terrasse", "Expérience bien-être", "Architecture du château", "Moments intimistes", "Les coins cachés", "Une journée sans quitter l'hôtel", "Ambiance romantique", "Les saisons au domaine", "Moments suspendus", "Vue depuis la piscine", "Évasion sur la Côte d'Azur"],
   APG: ["Ski-in ski-out", "Matin en montagne", "Vue sur les pistes", "Après-ski", "Ambiance hivernale", "Moments cocooning", "Cheminée et ambiance chaleureuse", "Une journée à Courchevel", "Spa après ski", "Neige qui tombe", "Dîner en altitude", "Activités montagne", "Moments en famille", "Ambiance soirée", "Lever de soleil sur la neige", "Vue depuis une suite", "Expérience luxe en hiver", "Moments cosy", "Les pistes au lever du jour", "Évasion alpine"],
