@@ -626,33 +626,81 @@ function Settings({ config, setConfig }) {
 function OpenClosedPanel({ accountSettings, setAccountSettings, month, onGenerate, onClear }) {
   const { accounts } = useContext(AccountsContext);
   const updateSetting = (id,field,val) => setAccountSettings(p=>({...p,[id]:{...p[id],[field]:val}}));
+
+  const updateTypeMix = (id, type, val) => {
+    setAccountSettings(p => {
+      const s = p[id] || {};
+      const mix = { ...(s.typeMix || { Photo:1, Carrousel:1, Reel:1 }), [type]: Math.max(0, parseInt(val)||0) };
+      const total = (mix.Photo||0) + (mix.Carrousel||0) + (mix.Reel||0);
+      // Auto-update postsPerWeek to match total if total > current
+      const ppw = total > parseInt(s.postsPerWeek||3) ? total : parseInt(s.postsPerWeek||3);
+      return { ...p, [id]: { ...s, typeMix: mix, postsPerWeek: ppw } };
+    });
+  };
+
   return (
     <div style={{ ...cardStyle,padding:20,marginBottom:16 }}>
       <div style={{ fontSize:12,fontWeight:600,color:C.textSecondary,letterSpacing:0.5,textTransform:"uppercase",fontFamily:F,marginBottom:14 }}>
         Établissements — {MONTHS_FR[month]}
       </div>
-      <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10 }}>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:10 }}>
         {accounts.map(a=>{
           const s=accountSettings[a.id]||{isOpen:true,postsPerWeek:3,closingDate:"",openingDate:""};
+          const mix=s.typeMix||{Photo:1,Carrousel:1,Reel:1};
+          const mixTotal=(mix.Photo||0)+(mix.Carrousel||0)+(mix.Reel||0);
+          const ppw=parseInt(s.postsPerWeek)||3;
           return (
-            <div key={a.id} style={{ padding:"12px 14px",borderRadius:12,border:`1px solid ${C.border}`,background:C.surfaceSecondary }}>
+            <div key={a.id} style={{ padding:"14px",borderRadius:12,border:`1px solid ${C.border}`,background:C.surfaceSecondary }}>
+              {/* Row 1: toggle + name + posts/week */}
               <div style={{ display:"flex",alignItems:"center",gap:10,flexWrap:"wrap" }}>
-                <button onClick={()=>updateSetting(a.id,"isOpen",!s.isOpen)} style={{ width:26,height:26,borderRadius:"50%",border:"none",background:s.isOpen?C.green:C.red,cursor:"pointer",flexShrink:0,transition:"background .2s",boxShadow:`0 2px 6px ${s.isOpen?C.green:C.red}55` }} />
+                <button onClick={()=>updateSetting(a.id,"isOpen",!s.isOpen)} style={{ width:26,height:26,borderRadius:"50%",border:"none",background:s.isOpen?C.green:C.red,cursor:"pointer",flexShrink:0,transition:"background .2s",boxShadow:`0 2px 6px ${s.isOpen?C.green:C.red}55` }} title={s.isOpen?"Ouvert — cliquer pour fermer":"Fermé — cliquer pour ouvrir"}/>
                 <span style={{ fontWeight:700,fontSize:13,color:a.color,fontFamily:F }}>{a.id}</span>
-                <span style={{ fontSize:11,color:C.textTertiary,fontFamily:F,flex:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{a.name}</span>
-                <div style={{ display:"flex",alignItems:"center",gap:6 }}>
-                  <input type="number" min="0" max="14" value={s.postsPerWeek} onChange={e=>updateSetting(a.id,"postsPerWeek",e.target.value)} style={{ width:44,padding:"4px 6px",borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:F,textAlign:"center",color:C.blue,fontWeight:700,background:C.surface,outline:"none" }} />
+                <span style={{ fontSize:11,color:C.textTertiary,fontFamily:F,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{a.name}</span>
+                <div style={{ display:"flex",alignItems:"center",gap:5 }}>
+                  <input type="number" min="0" max="99" value={s.postsPerWeek}
+                    onChange={e=>updateSetting(a.id,"postsPerWeek",Math.max(0,parseInt(e.target.value)||0))}
+                    style={{ width:44,padding:"4px 6px",borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:F,textAlign:"center",color:C.blue,fontWeight:700,background:C.surface,outline:"none" }}/>
                   <span style={{ fontSize:10,color:C.textTertiary,fontFamily:F }}>/sem</span>
                 </div>
               </div>
+
+              {/* Row 2: type mix */}
+              <div style={{ marginTop:10,padding:"10px",borderRadius:8,background:C.surface,border:`1px solid ${C.border}` }}>
+                <div style={{ fontSize:10,color:C.textTertiary,fontFamily:F,fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,marginBottom:8 }}>Répartition par type</div>
+                <div style={{ display:"flex",gap:8,alignItems:"center" }}>
+                  {[
+                    {key:"Reel",label:"Reels",color:C.indigo},
+                    {key:"Carrousel",label:"Carr.",color:"#2E7D6F"},
+                    {key:"Photo",label:"Photos",color:"#B8860B"},
+                  ].map(({key,label,color})=>(
+                    <div key={key} style={{ flex:1,textAlign:"center" }}>
+                      <div style={{ fontSize:9,color,fontFamily:F,fontWeight:600,marginBottom:3 }}>{label}</div>
+                      <input type="number" min="0" max="99" value={mix[key]||0}
+                        onChange={e=>updateTypeMix(a.id,key,e.target.value)}
+                        style={{ width:"100%",padding:"4px 4px",borderRadius:8,border:`1.5px solid ${color}44`,fontSize:13,fontFamily:F,textAlign:"center",color,fontWeight:700,background:"transparent",outline:"none" }}/>
+                    </div>
+                  ))}
+                  <div style={{ textAlign:"center",paddingLeft:4,borderLeft:`1px solid ${C.border}` }}>
+                    <div style={{ fontSize:9,color:C.textTertiary,fontFamily:F,fontWeight:600,marginBottom:3 }}>Total</div>
+                    <div style={{ fontSize:14,fontWeight:700,color:mixTotal===ppw?C.green:C.orange,fontFamily:F }}>{mixTotal}</div>
+                  </div>
+                </div>
+                {mixTotal!==ppw&&mixTotal>0&&(
+                  <div style={{ fontSize:10,color:C.orange,fontFamily:F,marginTop:6,textAlign:"center" }}>
+                    {mixTotal>ppw?`Total mis à jour : ${mixTotal} posts/sem`:`${ppw-mixTotal} post${ppw-mixTotal>1?"s":""} sans type assigné → distribués aléatoirement`}
+                  </div>
+                )}
+              </div>
+
+              {/* Row 3: dates */}
               <div style={{ display:"flex",gap:10,marginTop:10,flexWrap:"wrap" }}>
                 <div style={{ display:"flex",alignItems:"center",gap:5 }}>
                   <span style={{ fontSize:10,color:C.textTertiary,fontFamily:F }}>Fermeture</span>
-                  <input type="date" value={s.closingDate||""} onChange={e=>updateSetting(a.id,"closingDate",e.target.value)} style={{ padding:"2px 6px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:11,fontFamily:F,color:C.text,background:C.surface,outline:"none" }} />
+                  <input type="date" value={s.closingDate||""} onChange={e=>updateSetting(a.id,"closingDate",e.target.value)} style={{ padding:"2px 6px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:11,fontFamily:F,color:C.text,background:C.surface,outline:"none" }}/>
                 </div>
                 <div style={{ display:"flex",alignItems:"center",gap:5 }}>
                   <span style={{ fontSize:10,color:C.textTertiary,fontFamily:F }}>Ouverture</span>
-                  <input type="date" value={s.openingDate||""} onChange={e=>updateSetting(a.id,"openingDate",e.target.value)} style={{ padding:"2px 6px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:11,fontFamily:F,color:C.text,background:C.surface,outline:"none" }} />
+                  <input type="date" value={s.openingDate||""} onChange={e=>updateSetting(a.id,"openingDate",e.target.value)} style={{ padding:"2px 6px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:11,fontFamily:F,color:C.text,background:C.surface,outline:"none" }}/>
                 </div>
               </div>
             </div>
@@ -1087,24 +1135,90 @@ function FeedPreview({ posts }) {
           </div>
         )}
       </div>
-      {lightbox&&(
-        <div onClick={()=>setLightbox(null)} style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.8)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
-          <div onClick={e=>e.stopPropagation()} style={{ background:"#fff",borderRadius:12,overflow:"hidden",display:"flex",maxWidth:"min(860px,95vw)",width:"100%",maxHeight:"85vh" }}>
-            <div style={{ flex:"0 0 55%",background:"#000",display:"flex",alignItems:"center",justifyContent:"center" }}>
-              {getThumb(lightbox)?<img src={getThumb(lightbox)} style={{ maxWidth:"100%",maxHeight:"85vh",objectFit:"contain" }}/>:<div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:"#666",padding:40 }}><div style={{ fontSize:48,marginBottom:12 }}>📷</div><div style={{ fontSize:13 }}>Pas d'image</div></div>}
-            </div>
-            <div style={{ flex:1,padding:20,overflowY:"auto",display:"flex",flexDirection:"column" }}>
-              <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:16 }}>
-                <div style={{ width:36,height:36,borderRadius:"50%",background:acc?.color,display:"flex",alignItems:"center",justifyContent:"center" }}><span style={{ fontSize:12,fontWeight:700,color:"#fff",fontFamily:F }}>{lightbox.account}</span></div>
-                <div><div style={{ fontWeight:600,fontSize:13,fontFamily:F,color:"#1A1A1A" }}>{acc?.name}</div><div style={{ fontSize:11,color:C.textSecondary,fontFamily:F }}>{fmtDateFR(lightbox.dateKey)}</div></div>
-                <button onClick={()=>setLightbox(null)} style={{ marginLeft:"auto",background:"none",border:"none",fontSize:20,cursor:"pointer",color:C.textSecondary }}>×</button>
+      {lightbox&&(()=>{
+        const acc=accounts.find(a=>a.id===lightbox.account);
+        // Build media list for carousel navigation
+        const mediaItems=(lightbox.mediaItems||[]).filter(m=>{
+          const src=m.fileData||m.url||"";
+          return src && (m.fileType?.startsWith("image/")||m.fileType?.startsWith("video/")||src.match(/\.(jpg|jpeg|png|webp|gif|mp4|mov)/i)||src.startsWith("data:"));
+        });
+        const hasMultiple=mediaItems.length>1||(lightbox.type==="Carrousel"&&mediaItems.length>0);
+        const [slideIdx,setSlideIdx]=useState(0);
+        const currentMedia=mediaItems[slideIdx]||null;
+        const currentSrc=currentMedia?.fileData||currentMedia?.url||getThumb(lightbox)||null;
+        const isVideo=currentMedia?.fileType?.startsWith("video/")||currentSrc?.match(/\.(mp4|mov|webm)/i);
+
+        return(
+          <div onClick={()=>setLightbox(null)} style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
+            <div onClick={e=>e.stopPropagation()} style={{ background:"#fff",borderRadius:14,overflow:"hidden",display:"flex",maxWidth:"min(900px,95vw)",width:"100%",maxHeight:"88vh" }}>
+              {/* Media side */}
+              <div style={{ flex:"0 0 55%",background:"#000",display:"flex",alignItems:"center",justifyContent:"center",position:"relative" }}>
+                {currentSrc?(
+                  isVideo
+                    ?<video src={currentSrc} controls autoPlay style={{ maxWidth:"100%",maxHeight:"88vh",objectFit:"contain" }}/>
+                    :<img src={currentSrc} style={{ maxWidth:"100%",maxHeight:"88vh",objectFit:"contain" }}/>
+                ):(
+                  <div style={{ color:"#666",textAlign:"center",padding:40 }}><div style={{ fontSize:48 }}>📷</div><div style={{ fontSize:13,marginTop:8 }}>Pas d'image</div></div>
+                )}
+                {/* Carousel nav arrows */}
+                {hasMultiple&&mediaItems.length>1&&(<>
+                  <button onClick={e=>{e.stopPropagation();setSlideIdx(i=>Math.max(0,i-1));}}
+                    style={{ position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",width:36,height:36,borderRadius:"50%",border:"none",background:"rgba(255,255,255,0.85)",cursor:"pointer",fontSize:20,display:"flex",alignItems:"center",justifyContent:"center",opacity:slideIdx===0?0.3:1 }}>‹</button>
+                  <button onClick={e=>{e.stopPropagation();setSlideIdx(i=>Math.min(mediaItems.length-1,i+1));}}
+                    style={{ position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",width:36,height:36,borderRadius:"50%",border:"none",background:"rgba(255,255,255,0.85)",cursor:"pointer",fontSize:20,display:"flex",alignItems:"center",justifyContent:"center",opacity:slideIdx===mediaItems.length-1?0.3:1 }}>›</button>
+                  {/* Dots */}
+                  <div style={{ position:"absolute",bottom:10,left:0,right:0,display:"flex",justifyContent:"center",gap:5 }}>
+                    {mediaItems.map((_,i)=>(
+                      <div key={i} onClick={e=>{e.stopPropagation();setSlideIdx(i);}}
+                        style={{ width:i===slideIdx?18:7,height:7,borderRadius:4,background:i===slideIdx?"#fff":"rgba(255,255,255,0.4)",cursor:"pointer",transition:"all .2s" }}/>
+                    ))}
+                  </div>
+                  {/* Counter */}
+                  <div style={{ position:"absolute",top:10,right:12,background:"rgba(0,0,0,0.5)",color:"#fff",fontSize:11,fontFamily:F,padding:"2px 8px",borderRadius:10 }}>
+                    {slideIdx+1}/{mediaItems.length}
+                  </div>
+                </>)}
               </div>
-              {lightbox.subject&&<div style={{ fontWeight:600,fontSize:13,color:"#1A1A1A",fontFamily:F,marginBottom:8 }}>{lightbox.subject}</div>}
-              {lightbox.caption?<div style={{ fontSize:12,color:"#333",fontFamily:F,lineHeight:1.6,whiteSpace:"pre-wrap",flex:1 }}>{lightbox.caption}</div>:<div style={{ fontSize:12,color:C.textTertiary,fontFamily:F,fontStyle:"italic" }}>Pas de caption</div>}
+              {/* Info side */}
+              <div style={{ flex:1,padding:20,overflowY:"auto",display:"flex",flexDirection:"column" }}>
+                <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:16 }}>
+                  <div style={{ width:36,height:36,borderRadius:"50%",background:acc?.color,display:"flex",alignItems:"center",justifyContent:"center" }}><span style={{ fontSize:12,fontWeight:700,color:"#fff",fontFamily:F }}>{lightbox.account}</span></div>
+                  <div>
+                    <div style={{ fontWeight:600,fontSize:13,fontFamily:F,color:C.text }}>{acc?.name}</div>
+                    <div style={{ fontSize:11,color:C.textSecondary,fontFamily:F }}>{fmtDateFR(lightbox.dateKey)}</div>
+                  </div>
+                  <button onClick={()=>setLightbox(null)} style={{ marginLeft:"auto",background:"none",border:"none",fontSize:20,cursor:"pointer",color:C.textSecondary }}>×</button>
+                </div>
+                <div style={{ display:"flex",gap:6,marginBottom:12,flexWrap:"wrap" }}>
+                  <span style={{ padding:"2px 8px",borderRadius:6,background:`${C.blue}18`,color:C.blue,fontSize:10,fontFamily:F,fontWeight:600 }}>{lightbox.type}</span>
+                  {hasMultiple&&<span style={{ padding:"2px 8px",borderRadius:6,background:`${C.indigo}18`,color:C.indigo,fontSize:10,fontFamily:F,fontWeight:600 }}>{mediaItems.length} médias</span>}
+                </div>
+                {/* Thumbnails strip for carousel */}
+                {hasMultiple&&mediaItems.length>1&&(
+                  <div style={{ display:"flex",gap:5,marginBottom:12,overflowX:"auto",paddingBottom:4 }}>
+                    {mediaItems.map((m,i)=>{
+                      const src=m.fileData||m.url||"";
+                      const isVid=m.fileType?.startsWith("video/")||src.match(/\.(mp4|mov)/i);
+                      return(
+                        <div key={i} onClick={()=>setSlideIdx(i)}
+                          style={{ width:48,height:48,borderRadius:6,overflow:"hidden",flexShrink:0,cursor:"pointer",border:`2px solid ${i===slideIdx?C.blue:C.border}`,transition:"border .15s",position:"relative" }}>
+                          {isVid?(
+                            <div style={{ width:"100%",height:"100%",background:"#000",display:"flex",alignItems:"center",justifyContent:"center" }}><span style={{ fontSize:16 }}>▶</span></div>
+                          ):(
+                            <img src={src} style={{ width:"100%",height:"100%",objectFit:"cover" }}/>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {lightbox.subject&&<div style={{ fontWeight:600,fontSize:13,color:C.text,fontFamily:F,marginBottom:8 }}>{lightbox.subject}</div>}
+                {lightbox.caption?<div style={{ fontSize:12,color:C.textSecondary,fontFamily:F,lineHeight:1.6,whiteSpace:"pre-wrap",flex:1 }}>{lightbox.caption}</div>:<div style={{ fontSize:12,color:C.textTertiary,fontFamily:F,fontStyle:"italic" }}>Pas de caption</div>}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
@@ -1222,6 +1336,13 @@ function Library({ library, setLibrary, posts, setPosts, year, month, accountSet
   const [batchSel,setBatchSel]=useState([]);
   const [generating,setGenerating]=useState(false);
   const [genProg,setGenProg]=useState({current:0,total:0,label:""});
+
+  // Bulk selection state
+  const [bulkMode,setBulkMode]=useState(false);
+  const [bulkSel,setBulkSel]=useState([]);
+  const [bulkAcc,setBulkAcc]=useState("all");
+  const [bulkSub,setBulkSub]=useState("all");
+  const [showBulkPanel,setShowBulkPanel]=useState(false);
   const fileInputRef=useRef(null);
 
   const handleUpload=async(files)=>{
@@ -1248,6 +1369,22 @@ function Library({ library, setLibrary, posts, setPosts, year, month, accountSet
   const addSf=()=>{const n=newSfName.trim();if(!n||upAcc==="all")return;const cur=subfolders[upAcc]||[];if(cur.includes(n))return;setSubfolders(p=>({...p,[upAcc]:[...cur,n]}));setNewSfName("");setShowNewSf(false);};
   const rmSf=(acc,f)=>setSubfolders(p=>({...p,[acc]:(p[acc]||[]).filter(x=>x!==f)}));
   const handleDelete=async(item)=>{if(!window.confirm("Supprimer de la librairie ?"))return;if(db){try{await deleteDoc(doc(db,"library",item.id));}catch{}}setLibrary(p=>p.filter(x=>x.id!==item.id));};
+
+  const toggleBulk=(item)=>setBulkSel(p=>p.find(x=>x.id===item.id)?p.filter(x=>x.id!==item.id):[...p,item]);
+  const applyBulk=async()=>{
+    if(bulkSel.length===0)return;
+    const newAcc=bulkAcc==="all"?null:bulkAcc;
+    const newSub=bulkSub==="all"?null:bulkSub;
+    // Update Firestore for each selected item
+    const updated=[];
+    for(const item of bulkSel){
+      const entry={...item,account:newAcc,subfolder:newSub};
+      if(db){try{await setDoc(doc(db,"library",item.id),entry);}catch(e){console.error(e);}}
+      updated.push(entry);
+    }
+    setLibrary(prev=>prev.map(x=>{const u=updated.find(u=>u.id===x.id);return u||x;}));
+    setBulkSel([]);setBulkMode(false);setShowBulkPanel(false);
+  };
   const filtered=library.filter(x=>selAcc==="all"?true:x.account===selAcc).filter(x=>selSub==="all"?true:x.subfolder===selSub).filter(x=>(x.name||"").toLowerCase().includes(search.toLowerCase()));
   const countFor=id=>id==="all"?library.length:library.filter(x=>x.account===id).length;
   const curSubs=selAcc!=="all"?(subfolders[selAcc]||[]):[];
@@ -1355,8 +1492,42 @@ function Library({ library, setLibrary, posts, setPosts, year, month, accountSet
     <div style={{ ...cardStyle,padding:20,marginTop:16 }}>
       <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10 }}>
         <div style={{ fontSize:12,fontWeight:600,color:C.textSecondary,letterSpacing:0.5,textTransform:"uppercase",fontFamily:F }}>Librairie — {filtered.length} fichier{filtered.length!==1?"s":""}</div>
-        <button onClick={()=>setBatchMode(true)} style={{ padding:"8px 16px",borderRadius:10,border:"none",background:`linear-gradient(135deg,${C.indigo},${C.blue})`,color:"#fff",cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:600,boxShadow:`0 2px 10px ${C.blue}44` }}>✨ Génération batch</button>
+        <div style={{ display:"flex",gap:8 }}>
+          <button onClick={()=>{setBulkMode(b=>!b);setBulkSel([]);}} style={{ padding:"8px 16px",borderRadius:10,border:`1px solid ${bulkMode?C.orange:C.border}`,background:bulkMode?`${C.orange}15`:"transparent",color:bulkMode?C.orange:C.textSecondary,cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:600 }}>
+            {bulkMode?`✓ ${bulkSel.length} sélectionné${bulkSel.length>1?"s":""}` :"☑ Sélection multiple"}
+          </button>
+          <button onClick={()=>setBatchMode(true)} style={{ padding:"8px 16px",borderRadius:10,border:"none",background:`linear-gradient(135deg,${C.indigo},${C.blue})`,color:"#fff",cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:600,boxShadow:`0 2px 10px ${C.blue}44` }}>✨ Batch</button>
+        </div>
       </div>
+
+      {/* Bulk action panel */}
+      {bulkMode&&bulkSel.length>0&&(
+        <div style={{ padding:14,borderRadius:12,background:`${C.orange}10`,border:`1px solid ${C.orange}44`,marginBottom:14 }}>
+          <div style={{ fontSize:12,fontWeight:600,color:C.orange,fontFamily:F,marginBottom:10 }}>{bulkSel.length} image{bulkSel.length>1?"s":""} sélectionnée{bulkSel.length>1?"s":""} — Modifier les tags</div>
+          <div style={{ display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end" }}>
+            <div>
+              <div style={{ fontSize:10,color:C.textTertiary,fontFamily:F,marginBottom:4 }}>Établissement</div>
+              <select value={bulkAcc} onChange={e=>setBulkAcc(e.target.value)} style={{ ...selectStyle,fontSize:12 }}>
+                <option value="all">— Aucun —</option>
+                {accounts.map(a=><option key={a.id} value={a.id}>{a.id} — {a.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{ fontSize:10,color:C.textTertiary,fontFamily:F,marginBottom:4 }}>Sous-dossier</div>
+              <select value={bulkSub} onChange={e=>setBulkSub(e.target.value)} style={{ ...selectStyle,fontSize:12 }}>
+                <option value="all">— Racine —</option>
+                {(bulkAcc!=="all"?subfolders[bulkAcc]||[]:accounts.flatMap(a=>subfolders[a.id]||[])).filter((v,i,a)=>a.indexOf(v)===i).map(sf=><option key={sf} value={sf}>{sf}</option>)}
+              </select>
+            </div>
+            <button onClick={applyBulk} style={{ padding:"8px 18px",borderRadius:10,border:"none",background:C.orange,color:"#fff",cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:600 }}>
+              Appliquer
+            </button>
+            <button onClick={()=>{setBulkSel([]);setBulkMode(false);}} style={{ padding:"8px 14px",borderRadius:10,border:`1px solid ${C.border}`,background:"transparent",color:C.textSecondary,cursor:"pointer",fontSize:13,fontFamily:F }}>
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
       <div style={{ display:"flex",gap:6,marginBottom:10,flexWrap:"wrap" }}>
         <button onClick={()=>{setSelAcc("all");setSelSub("all");}} style={{ ...pillBtn(selAcc==="all"),fontSize:12 }}>Tous ({countFor("all")})</button>
         {accounts.map(a=><button key={a.id} onClick={()=>{setSelAcc(a.id);setSelSub("all");}} style={{ ...pillBtn(selAcc===a.id,a.color),fontSize:12 }}>{a.id} ({countFor(a.id)})</button>)}
@@ -1408,9 +1579,14 @@ function Library({ library, setLibrary, posts, setPosts, year, month, accountSet
       <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:10 }}>
         {filtered.map(item=>{
           const acc=accounts.find(a=>a.id===item.account);
+          const isBulkSel=bulkSel.find(x=>x.id===item.id);
           return(
-            <div key={item.id} style={{ borderRadius:10,overflow:"hidden",border:`1px solid ${C.border}`,background:C.surfaceSecondary,position:"relative" }}>
-              {item.fileType?.startsWith("image/")?<img src={item.url} alt={item.name} onClick={()=>setLightbox(item)} style={{ width:"100%",aspectRatio:"1",objectFit:"cover",cursor:"pointer",display:"block" }}/>:<div style={{ width:"100%",aspectRatio:"1",background:`${C.blue}10`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer" }} onClick={()=>setLightbox(item)}><span style={{ fontSize:28 }}>🎬</span></div>}
+            <div key={item.id} onClick={()=>bulkMode&&toggleBulk(item)}
+              style={{ borderRadius:10,overflow:"hidden",border:`2px solid ${isBulkSel?C.orange:C.border}`,background:isBulkSel?`${C.orange}08`:C.surfaceSecondary,position:"relative",cursor:bulkMode?"pointer":"default",transition:"border-color .15s" }}>
+              {isBulkSel&&<div style={{ position:"absolute",top:6,left:6,width:22,height:22,borderRadius:"50%",background:C.orange,display:"flex",alignItems:"center",justifyContent:"center",zIndex:2 }}><span style={{ color:"#fff",fontSize:12,fontWeight:700 }}>✓</span></div>}
+              {item.fileType?.startsWith("image/")?
+                <img src={item.url} alt={item.name} onClick={()=>!bulkMode&&setLightbox(item)} style={{ width:"100%",aspectRatio:"1",objectFit:"cover",cursor:bulkMode?"pointer":"pointer",display:"block" }}/>:
+                <div style={{ width:"100%",aspectRatio:"1",background:`${C.blue}10`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer" }} onClick={()=>!bulkMode&&setLightbox(item)}><span style={{ fontSize:28 }}>🎬</span></div>}
               <div style={{ padding:"5px 6px",background:C.surface,borderTop:`1px solid ${C.border}` }}>
                 <div style={{ fontSize:9,color:C.textTertiary,fontFamily:F,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{item.name}</div>
                 <div style={{ display:"flex",gap:4,marginTop:2,flexWrap:"wrap" }}>
@@ -1418,7 +1594,7 @@ function Library({ library, setLibrary, posts, setPosts, year, month, accountSet
                   {item.subfolder&&<div style={{ fontSize:9,color:C.textTertiary,fontFamily:F }}>/ {item.subfolder}</div>}
                 </div>
               </div>
-              <button onClick={()=>handleDelete(item)} style={{ position:"absolute",top:4,right:4,width:20,height:20,borderRadius:"50%",border:"none",background:"rgba(0,0,0,.5)",color:"#fff",cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center" }}>×</button>
+              {!bulkMode&&<button onClick={()=>handleDelete(item)} style={{ position:"absolute",top:4,right:4,width:20,height:20,borderRadius:"50%",border:"none",background:"rgba(0,0,0,.5)",color:"#fff",cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center" }}>×</button>}
             </div>
           );
         })}
@@ -1437,6 +1613,374 @@ function Library({ library, setLibrary, posts, setPosts, year, month, accountSet
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ── Publication ───────────────────────────────────────────────────────────────
+function Publication({ posts, setPosts, config }) {
+  const accounts = config?.accounts || [];
+  const [filterAcc, setFilterAcc] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [copiedKey, setCopiedKey] = useState(null);
+  const [zipping, setZipping] = useState(false);
+  const [lightbox, setLightbox] = useState(null);
+
+  const STATUSES = ["Brouillon","En cours","Validé","Programmé","Publié"];
+  const STATUS_COLORS = { "Brouillon":"#FF9500","En cours":C.blue,"Validé":C.green,"Programmé":C.indigo,"Publié":C.green };
+
+  // Flatten all posts sorted by date asc
+  const allPosts = Object.entries(posts)
+    .sort(([a],[b])=>a.localeCompare(b))
+    .flatMap(([dateKey,dayPosts])=>
+      dayPosts.map((p,idx)=>{
+        const acc = accounts.find(a=>a.id===p.account);
+        const dow = new Date(dateKey).getDay();
+        const isWe = dow===0||dow===6;
+        const bt = config?.bestTimes?.[p.account];
+        const time = bt ? (isWe ? bt.weekend : bt.weekday) : "";
+        const firstImg = (p.mediaItems||[]).find(m=>(m.fileData&&m.fileData.startsWith("data:image"))||(m.url&&(m.fileType?.startsWith("image/")||m.url.match(/\.(jpg|jpeg|png|webp|gif)/i))));
+        const thumbSrc = firstImg?.fileData||firstImg?.url||null;
+        const imageUrl = firstImg?.url||null;
+        return { ...p, dateKey, idx, acc, time, thumbSrc, imageUrl, key:`${dateKey}-${p.account}-${idx}` };
+      })
+    );
+
+  const filtered = allPosts
+    .filter(p=> filterAcc==="all" ? true : p.account===filterAcc)
+    .filter(p=> filterStatus==="all" ? true : p.status===filterStatus);
+
+  const copyCaption = (key, caption) => {
+    navigator.clipboard.writeText(caption||"");
+    setCopiedKey(key);
+    setTimeout(()=>setCopiedKey(null), 2000);
+  };
+
+  const updateStatus = (dateKey, idx, status) => {
+    setPosts(prev=>{
+      const u={...prev};
+      const dp=[...(u[dateKey]||[])];
+      dp[idx]={...dp[idx],status};
+      u[dateKey]=dp;
+      return u;
+    });
+  };
+
+  const downloadImage = (url, filename) => {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.click();
+  };
+
+  const downloadAll = async () => {
+    if (zipping) return;
+    const toDownload = filtered.filter(p=>p.imageUrl);
+    if (toDownload.length === 0) { alert("Aucune image avec URL disponible dans cette sélection."); return; }
+    setZipping(true);
+    try {
+      // Download images one by one with a small delay
+      for (const p of toDownload) {
+        const [y,m,d] = p.dateKey.split("-");
+        const filename = `${p.dateKey}_${p.account}_${p.type||"post"}.jpg`;
+        downloadImage(p.imageUrl, filename);
+        await new Promise(r=>setTimeout(r,400));
+      }
+    } catch(e) { console.error(e); }
+    setZipping(false);
+  };
+
+  const copyAllCaptions = () => {
+    const text = filtered.filter(p=>p.caption).map(p=>{
+      const [y,m,d]=p.dateKey.split("-");
+      return `── ${parseInt(d)} ${MONTHS_FR[Number(m)-1]} ${y} | ${p.account} | ${p.type||""} | ${p.time||""} ──\n${p.caption}\n`;
+    }).join("\n");
+    navigator.clipboard.writeText(text);
+    alert("Toutes les captions copiées !");
+  };
+
+  const countFor = id => id==="all" ? allPosts.length : allPosts.filter(p=>p.account===id).length;
+
+  return (
+    <div style={{ marginTop:16 }}>
+      {/* Header */}
+      <div style={{ ...cardStyle, padding:20, marginBottom:14 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12, marginBottom:16 }}>
+          <div>
+            <div style={{ fontSize:17,fontWeight:700,color:C.text,fontFamily:F }}>📤 Publication</div>
+            <div style={{ fontSize:12,color:C.textSecondary,fontFamily:F,marginTop:2 }}>{filtered.length} post{filtered.length!==1?"s":""} affichés</div>
+          </div>
+          <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
+            <button onClick={copyAllCaptions} style={{ padding:"8px 16px",borderRadius:10,border:"none",background:C.indigo,color:"#fff",cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:600 }}>
+              📋 Copier toutes les captions
+            </button>
+            <button onClick={downloadAll} disabled={zipping} style={{ padding:"8px 16px",borderRadius:10,border:"none",background:C.green,color:"#fff",cursor:zipping?"default":"pointer",fontSize:13,fontFamily:F,fontWeight:600,opacity:zipping?0.7:1 }}>
+              {zipping ? "Téléchargement..." : "⬇ Télécharger toutes les images"}
+            </button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div style={{ display:"flex",gap:10,flexWrap:"wrap",alignItems:"center" }}>
+          <div style={{ display:"flex",gap:5,flexWrap:"wrap" }}>
+            <button onClick={()=>setFilterAcc("all")} style={{ padding:"4px 12px",borderRadius:20,border:`1.5px solid ${C.blue}`,background:filterAcc==="all"?C.blue:"transparent",color:filterAcc==="all"?"#fff":C.blue,cursor:"pointer",fontSize:11,fontFamily:F,fontWeight:600 }}>
+              Tous ({countFor("all")})
+            </button>
+            {accounts.map(a=>(
+              <button key={a.id} onClick={()=>setFilterAcc(a.id)} style={{ padding:"4px 12px",borderRadius:20,border:`1.5px solid ${a.color}`,background:filterAcc===a.id?a.color:"transparent",color:filterAcc===a.id?"#fff":a.color,cursor:"pointer",fontSize:11,fontFamily:F,fontWeight:600 }}>
+                {a.id} ({countFor(a.id)})
+              </button>
+            ))}
+          </div>
+          <div style={{ width:1,height:20,background:C.border }} />
+          <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{ ...selectStyle,fontSize:12 }}>
+            <option value="all">Tous les statuts</option>
+            {STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {filtered.length===0&&(
+        <div style={{ ...cardStyle,padding:60,textAlign:"center" }}>
+          <div style={{ fontSize:32,marginBottom:8 }}>📭</div>
+          <div style={{ fontSize:14,color:C.textSecondary,fontFamily:F }}>Aucun post dans cette sélection</div>
+        </div>
+      )}
+
+      {/* Post cards */}
+      <div style={{ display:"flex",flexDirection:"column",gap:10 }}>
+        {filtered.map((p,i)=>{
+          const [y,m,d]=p.dateKey.split("-");
+          const dow=["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"][new Date(Number(y),Number(m)-1,Number(d)).getDay()];
+          const isCopied=copiedKey===p.key;
+          const statusColor=STATUS_COLORS[p.status||"Brouillon"]||C.textTertiary;
+
+          return (
+            <div key={p.key} style={{ background:C.surface,borderRadius:16,border:`1px solid ${C.border}`,overflow:"hidden",boxShadow:"0 1px 6px rgba(0,0,0,0.05)" }}>
+              {/* Top bar */}
+              <div style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 16px",background:p.acc?`${p.acc.color}10`:C.surfaceSecondary,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap" }}>
+                <div style={{ fontWeight:700,fontSize:13,color:p.acc?.color||C.text,fontFamily:F }}>{p.account}</div>
+                <div style={{ fontSize:13,color:C.textSecondary,fontFamily:F }}>{dow} {parseInt(d)} {MONTHS_FR[Number(m)-1]} {y}</div>
+                {p.time&&<div style={{ fontSize:11,color:C.blue,fontFamily:F,background:`${C.blue}12`,padding:"2px 8px",borderRadius:6,fontWeight:600 }}>🕐 {p.time}</div>}
+                <div style={{ fontSize:11,color:"#fff",fontFamily:F,background:`${p.acc?.color||"#999"}`,padding:"2px 8px",borderRadius:6,fontWeight:600 }}>{p.type||"—"}</div>
+                <div style={{ marginLeft:"auto",display:"flex",alignItems:"center",gap:6 }}>
+                  <span style={{ width:8,height:8,borderRadius:"50%",background:statusColor,display:"inline-block" }}/>
+                  <select value={p.status||"Brouillon"} onChange={e=>updateStatus(p.dateKey,p.idx,e.target.value)}
+                    style={{ ...selectStyle,fontSize:11,padding:"2px 6px",color:statusColor,fontWeight:600,borderColor:statusColor }}>
+                    {STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div style={{ display:"flex",gap:0 }}>
+                {/* Image */}
+                <div style={{ width:160,flexShrink:0,background:C.surfaceSecondary,borderRight:`1px solid ${C.border}`,position:"relative",cursor:p.thumbSrc?"pointer":"default" }}
+                  onClick={()=>p.thumbSrc&&setLightbox(p)}>
+                  {p.thumbSrc ? (
+                    <img src={p.thumbSrc} style={{ width:160,height:160,objectFit:"cover",display:"block" }}/>
+                  ) : (
+                    <div style={{ width:160,height:160,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center" }}>
+                      <div style={{ fontSize:28 }}>📷</div>
+                      <div style={{ fontSize:10,color:C.textTertiary,fontFamily:F,marginTop:4 }}>Pas d'image</div>
+                    </div>
+                  )}
+                  {p.thumbSrc&&(
+                    <div style={{ position:"absolute",inset:0,background:"rgba(0,0,0,0)",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .2s" }}
+                      onMouseEnter={e=>{e.currentTarget.style.background="rgba(0,0,0,0.35)";e.currentTarget.querySelector("span").style.opacity="1";}}
+                      onMouseLeave={e=>{e.currentTarget.style.background="rgba(0,0,0,0)";e.currentTarget.querySelector("span").style.opacity="0";}}>
+                      <span style={{ opacity:0,fontSize:20,transition:"opacity .2s" }}>🔍</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Caption + actions */}
+                <div style={{ flex:1,padding:16,display:"flex",flexDirection:"column",gap:10,minWidth:0 }}>
+                  {p.subject&&<div style={{ fontSize:14,fontWeight:600,color:C.text,fontFamily:F }}>{p.subject}</div>}
+
+                  {p.caption ? (
+                    <div style={{ fontSize:12,color:C.textSecondary,fontFamily:F,lineHeight:1.6,whiteSpace:"pre-wrap",flex:1,maxHeight:120,overflow:"hidden",position:"relative" }}>
+                      {p.caption}
+                      <div style={{ position:"absolute",bottom:0,left:0,right:0,height:30,background:`linear-gradient(transparent, ${C.surface})` }}/>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize:12,color:C.textTertiary,fontFamily:F,fontStyle:"italic",flex:1 }}>Pas de caption</div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div style={{ display:"flex",gap:8,flexWrap:"wrap",marginTop:"auto" }}>
+                    {p.caption&&(
+                      <button onClick={()=>copyCaption(p.key,p.caption)}
+                        style={{ padding:"7px 16px",borderRadius:10,border:"none",background:isCopied?C.green:C.blue,color:"#fff",cursor:"pointer",fontSize:12,fontFamily:F,fontWeight:600,transition:"background .2s",flexShrink:0 }}>
+                        {isCopied?"✓ Copié !":"📋 Copier la caption"}
+                      </button>
+                    )}
+                    {p.imageUrl&&(
+                      <button onClick={()=>{const[y2,m2,d2]=p.dateKey.split("-");downloadImage(p.imageUrl,`${p.dateKey}_${p.account}_${p.type||"post"}.jpg`);}}
+                        style={{ padding:"7px 16px",borderRadius:10,border:`1px solid ${C.border}`,background:C.surfaceSecondary,color:C.text,cursor:"pointer",fontSize:12,fontFamily:F,fontWeight:500,flexShrink:0 }}>
+                        ⬇ Télécharger l'image
+                      </button>
+                    )}
+                    {p.imageUrl&&(
+                      <a href={p.imageUrl} target="_blank" rel="noopener noreferrer"
+                        style={{ padding:"7px 16px",borderRadius:10,border:`1px solid ${C.border}`,background:"transparent",color:C.textSecondary,cursor:"pointer",fontSize:12,fontFamily:F,fontWeight:500,textDecoration:"none",flexShrink:0 }}>
+                        Ouvrir ↗
+                      </a>
+                    )}
+                    {(p.mediaItems||[]).filter(m=>m.url).length > 1 && (
+                      <span style={{ fontSize:11,color:C.textTertiary,fontFamily:F,alignSelf:"center" }}>
+                        +{(p.mediaItems||[]).filter(m=>m.url).length-1} autre{(p.mediaItems||[]).filter(m=>m.url).length>2?"s":""} image{(p.mediaItems||[]).filter(m=>m.url).length>2?"s":""}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* All images for carrousels */}
+                  {(p.mediaItems||[]).filter(m=>m.url||(m.fileData&&m.fileData.startsWith("data:image"))).length > 1 && (
+                    <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginTop:4 }}>
+                      {(p.mediaItems||[]).filter(m=>m.url||(m.fileData&&m.fileData.startsWith("data:image"))).map((m,mi)=>(
+                        <div key={mi} style={{ position:"relative" }}>
+                          <img src={m.fileData||m.url} style={{ width:48,height:48,borderRadius:8,objectFit:"cover",border:`1px solid ${C.border}`,cursor:"pointer" }}
+                            onClick={()=>setLightbox({...p,thumbSrc:m.fileData||m.url,imageUrl:m.url})}/>
+                          {m.url&&(
+                            <button onClick={()=>downloadImage(m.url,`${p.dateKey}_${p.account}_${mi+1}.jpg`)}
+                              style={{ position:"absolute",top:-4,right:-4,width:16,height:16,borderRadius:"50%",border:"none",background:C.blue,color:"#fff",cursor:"pointer",fontSize:9,display:"flex",alignItems:"center",justifyContent:"center" }}>
+                              ⬇
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Lightbox */}
+      {lightbox&&(
+        <div onClick={()=>setLightbox(null)} style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
+          <div onClick={e=>e.stopPropagation()} style={{ position:"relative",maxWidth:"90vw",display:"flex",flexDirection:"column",alignItems:"center",gap:12 }}>
+            <img src={lightbox.thumbSrc} style={{ maxWidth:"85vw",maxHeight:"78vh",objectFit:"contain",borderRadius:10,display:"block" }}/>
+            <div style={{ display:"flex",gap:10 }}>
+              {lightbox.imageUrl&&(
+                <button onClick={()=>downloadImage(lightbox.imageUrl,`${lightbox.dateKey}_${lightbox.account}.jpg`)}
+                  style={{ padding:"8px 18px",borderRadius:10,border:"none",background:C.blue,color:"#fff",cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:600 }}>
+                  ⬇ Télécharger
+                </button>
+              )}
+              {lightbox.imageUrl&&(
+                <a href={lightbox.imageUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ padding:"8px 18px",borderRadius:10,border:`1px solid rgba(255,255,255,0.3)`,background:"transparent",color:"#fff",cursor:"pointer",fontSize:13,fontFamily:F,textDecoration:"none" }}>
+                  Ouvrir ↗
+                </a>
+              )}
+            </div>
+            <button onClick={()=>setLightbox(null)} style={{ position:"absolute",top:-14,right:-14,width:30,height:30,borderRadius:"50%",border:"none",background:"#fff",color:C.text,cursor:"pointer",fontSize:16,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center" }}>×</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Guide ─────────────────────────────────────────────────────────────────────
+function Guide() {
+  const [open,setOpen]=useState(null);
+  const sections=[
+    { id:"start",emoji:"🚀",title:"Par où commencer ?",color:C.blue,steps:[
+      {label:"1. Configure les établissements",desc:"Clique sur l'icône ⚙️ en haut à gauche pour accéder aux Paramètres. Définis pour chaque compte le statut ouvert/fermé, le nombre de posts par semaine, et les dates indicatives."},
+      {label:"2. Upload tes images dans la Librairie",desc:"Va dans l'onglet Librairie et uploade tes photos par établissement et sous-dossier. Glisse-dépose plusieurs images à la fois."},
+      {label:"3. Génère le planning",desc:"Dans le Calendrier, clique sur \"Générer le planning\". Le système répartit automatiquement les posts selon le rythme défini, en tenant compte des semaines coupées."},
+      {label:"4. Complète les fiches",desc:"Clique sur un jour pour ouvrir le panneau. Édite chaque fiche : choisis l'image, génère la caption avec l'IA, modifie le sujet."},
+      {label:"5. Publie depuis l'onglet Publication",desc:"L'onglet Publication affiche tous tes posts avec image + caption côte à côte. Change les statuts, copie les captions, télécharge les images."},
+    ]},
+    { id:"calendar",emoji:"📅",title:"Calendrier",color:"#5856D6",steps:[
+      {label:"Naviguer entre les mois",desc:"Utilise les flèches ‹ › de part et d'autre du nom du mois."},
+      {label:"Cliquer sur un jour",desc:"Un clic ouvre le panneau de la journée. Recliquer ferme le panneau."},
+      {label:"Déplacer un post (drag & drop)",desc:"Attrape une fiche et glisse-la vers une autre case. La case cible se surligne en bleu."},
+      {label:"Miniature dans le calendrier",desc:"Si un post a une image, une miniature apparaît dans la case pour une vision rapide du contenu."},
+      {label:"Générer le planning",desc:"Répartit automatiquement les posts en respectant le rythme posts/semaine et la proratisation des semaines coupées."},
+      {label:"Effacer le planning",desc:"Supprime tous les posts du mois en cours. Les autres mois ne sont pas affectés."},
+    ]},
+    { id:"posts",emoji:"✏️",title:"Fiches post",color:"#FF9500",steps:[
+      {label:"Créer un post",desc:"Dans le panneau d'un jour, clique sur \"+ Ajouter\". Choisis le compte, le type et le statut."},
+      {label:"Analyser l'image avec l'IA ✨",desc:"Dès qu'une image et un compte sont sélectionnés, le bouton \"✨ Analyser l'image\" apparaît. L'IA analyse la photo et génère sujet + caption adaptés à l'établissement."},
+      {label:"Générer / Regénérer la caption",desc:"Si tu remplis le sujet manuellement, la caption se génère automatiquement. Tu peux la regénérer à tout moment."},
+      {label:"Copier la caption",desc:"Le bouton \"Copier\" copie tout le texte dans le presse-papier."},
+      {label:"Dupliquer un post",desc:"Copie un post vers une autre date avec possibilité de changer le compte."},
+      {label:"Statuts",desc:"5 statuts : Brouillon → En cours → Validé → Programmé → Publié. Visible dans le calendrier et modifiable dans Publication."},
+    ]},
+    { id:"publication",emoji:"📤",title:"Publication",color:C.green,steps:[
+      {label:"Vue principale",desc:"Affiche tous les posts triés par date avec image, caption, date et heure suggérée."},
+      {label:"Filtres",desc:"Filtre par compte (APG, CSM...) et par statut pour n'afficher que ce dont tu as besoin."},
+      {label:"Copier une caption",desc:"Le bouton \"📋 Copier la caption\" copie le texte en un clic, prêt à coller dans Meta Business Suite ou Later."},
+      {label:"Télécharger une image",desc:"Le bouton \"⬇ Télécharger l'image\" télécharge directement le fichier depuis Cloudinary."},
+      {label:"Télécharger toutes les images",desc:"Le bouton en haut télécharge toutes les images de la sélection en cours, une par une avec des noms explicites (date_compte_type.jpg)."},
+      {label:"Copier toutes les captions",desc:"Copie toutes les captions de la sélection dans le presse-papier, séparées par post."},
+      {label:"Lightbox",desc:"Clique sur une image pour l'agrandir. Tu peux la télécharger ou l'ouvrir dans un nouvel onglet depuis la lightbox."},
+      {label:"Carrousels",desc:"Les posts avec plusieurs images affichent toutes les miniatures en bas avec un bouton de téléchargement individuel pour chacune."},
+    ]},
+    { id:"library",emoji:"📁",title:"Librairie",color:C.green,steps:[
+      {label:"Upload avec sous-dossiers",desc:"Sélectionne le compte et le sous-dossier avant d'uploader. Les images sont organisées dans Cloudinary : oh_library/APG/Chambres/photo.jpg"},
+      {label:"Créer un sous-dossier",desc:"Clique sur \"+ Créer un nouveau sous-dossier\" dans la zone d'upload. Il est sauvegardé pour tous les utilisateurs."},
+      {label:"Filtrer par compte et sous-dossier",desc:"Les onglets en haut filtrent par compte. Une seconde rangée apparaît pour filtrer par sous-dossier."},
+      {label:"Génération batch ✨",desc:"Sélectionne des images, groupe-les, et génère des posts complets avec l'IA en une fois. Les posts sont placés automatiquement dans le calendrier."},
+    ]},
+    { id:"hashtags",emoji:"#️⃣",title:"Hashtags",color:"#FF9500",steps:[
+      {label:"Banque par compte",desc:"Chaque établissement a sa propre banque de hashtags. Sélectionne le compte avec les boutons en haut."},
+      {label:"Exactement 5 hashtags par caption",desc:"Les hashtags obligatoires sont inclus en premier, complétés par des hashtags aléatoires de la banque jusqu'à 5 au total."},
+      {label:"Modifier les hashtags",desc:"En mode édition (bouton ✏️), tu peux ajouter ou supprimer des hashtags de la banque et des hashtags obligatoires."},
+    ]},
+  ];
+
+  return (
+    <div style={{ marginTop:16 }}>
+      <div style={{ ...cardStyle,padding:28,marginBottom:14,background:`linear-gradient(135deg, ${C.blue}06, ${C.indigo}06)` }}>
+        <div style={{ fontSize:24,fontWeight:700,color:C.text,fontFamily:F,marginBottom:6,letterSpacing:-0.5 }}>📖 Guide d'utilisation</div>
+        <div style={{ fontSize:13,color:C.textSecondary,fontFamily:F,lineHeight:1.6,maxWidth:580 }}>
+          Tout ce qu'il faut savoir pour utiliser le Calendrier Éditorial efficacement.
+        </div>
+        <div style={{ display:"flex",gap:6,marginTop:14,flexWrap:"wrap" }}>
+          {sections.map(s=>(
+            <button key={s.id} onClick={()=>setOpen(open===s.id?null:s.id)}
+              style={{ padding:"5px 14px",borderRadius:20,border:`1.5px solid ${s.color}`,background:open===s.id?s.color:"transparent",color:open===s.id?"#fff":s.color,cursor:"pointer",fontSize:11,fontFamily:F,fontWeight:600,transition:"all .15s" }}>
+              {s.emoji} {s.title}
+            </button>
+          ))}
+        </div>
+      </div>
+      {sections.map(s=>(
+        <div key={s.id} style={{ ...cardStyle,marginBottom:8 }}>
+          <button onClick={()=>setOpen(open===s.id?null:s.id)}
+            style={{ width:"100%",padding:"14px 20px",display:"flex",alignItems:"center",gap:12,background:"none",border:"none",cursor:"pointer",textAlign:"left" }}>
+            <div style={{ width:38,height:38,borderRadius:10,background:`${s.color}18`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0 }}>{s.emoji}</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14,fontWeight:700,color:C.text,fontFamily:F }}>{s.title}</div>
+              <div style={{ fontSize:11,color:C.textSecondary,fontFamily:F,marginTop:1 }}>{s.steps.length} point{s.steps.length>1?"s":""}</div>
+            </div>
+            <div style={{ fontSize:16,color:C.textTertiary,transform:open===s.id?"rotate(90deg)":"rotate(0)",transition:"transform .2s" }}>›</div>
+          </button>
+          {open===s.id&&(
+            <div style={{ padding:"0 20px 18px",borderTop:`1px solid ${C.border}` }}>
+              {s.steps.map((step,i)=>(
+                <div key={i} style={{ display:"flex",gap:14,padding:"11px 0",borderBottom:i<s.steps.length-1?`1px solid ${C.border}`:"none" }}>
+                  <div style={{ width:26,height:26,borderRadius:"50%",background:`${s.color}18`,border:`1.5px solid ${s.color}44`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1 }}>
+                    <span style={{ fontSize:10,fontWeight:700,color:s.color,fontFamily:F }}>{i+1}</span>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:13,fontWeight:600,color:C.text,fontFamily:F,marginBottom:3 }}>{step.label}</div>
+                    <div style={{ fontSize:12,color:C.textSecondary,fontFamily:F,lineHeight:1.6 }}>{step.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ROOT APP
 // ══════════════════════════════════════════════════════════════════════════════
 export default function App() {
@@ -1522,8 +2066,22 @@ export default function App() {
   const generatePlanning=()=>{
     const np={...posts};
     config.accounts.forEach(a=>{
-      const ppw=Math.max(1,parseInt(accountSettings[a.id]?.postsPerWeek)||3);
+      const s=accountSettings[a.id]||{};
+      const ppw=Math.max(1,parseInt(s.postsPerWeek)||3);
+      const mix=s.typeMix||{Photo:1,Carrousel:1,Reel:1};
+      const mixTotal=(mix.Photo||0)+(mix.Carrousel||0)+(mix.Reel||0);
+
+      // Build a weighted type sequence from the mix
+      // e.g. {Reel:3, Carrousel:1, Photo:1} → [Reel,Reel,Reel,Carrousel,Photo] repeated
+      const typeSeq=[];
+      ["Reel","Carrousel","Photo"].forEach(t=>{ for(let i=0;i<(mix[t]||0);i++) typeSeq.push(t); });
+      // If mix doesn't cover all posts, fill remainder with Photo
+      const remainder=ppw-mixTotal;
+      if(remainder>0) for(let i=0;i<remainder;i++) typeSeq.push("Photo");
+      // Shuffle for variety within the sequence
+      const shuffled=[...typeSeq].sort(()=>Math.random()-0.5);
       let ti=0;
+
       const fom=new Date(year,month,1);
       const dow1=fom.getDay();const mo=dow1===0?-6:1-dow1;
       const fm=new Date(year,month,1+mo);
@@ -1538,7 +2096,11 @@ export default function App() {
           const n=ppd+(ei.has(di)?1:0);if(n===0)return;
           const dk=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
           const ex=np[dk]||[];const already=ex.filter(p=>p.account===a.id).length;
-          for(let k=0;k<n-already;k++){ex.push({account:a.id,type:POST_TYPES[ti%POST_TYPES.length],subject:"",caption:"",credits:"",mediaItems:[],status:"Brouillon"});ti++;}
+          for(let k=0;k<n-already;k++){
+            const type=shuffled.length>0?shuffled[ti%shuffled.length]:"Photo";
+            ex.push({account:a.id,type,subject:"",caption:"",credits:"",mediaItems:[],status:"Brouillon"});
+            ti++;
+          }
           np[dk]=ex;
         });
       });
@@ -1547,10 +2109,11 @@ export default function App() {
   };
 
   const clearPlanning=()=>{const np={...posts};Object.keys(np).forEach(k=>{if(k.startsWith(monthPrefix))delete np[k];});setPosts(np);};
+  const [showSettings,setShowSettings]=useState(false);
 
   const tabs=[
     {id:"calendar",label:"Calendrier"},{id:"preview",label:"Preview"},{id:"recap",label:"Récap"},
-    {id:"archive",label:"Archive"},{id:"library",label:"Librairie"},{id:"settings",label:"⚙️ Paramètres"},
+    {id:"archive",label:"Archive"},{id:"library",label:"Librairie"},{id:"publication",label:"📤 Publication"},{id:"guide",label:"📖 Guide"},
   ];
 
   return(
@@ -1568,11 +2131,17 @@ export default function App() {
 
     <div style={{ fontFamily:F,background:C.bg,minHeight:"100vh",padding:"28px 20px" }}>
       <div style={{ textAlign:"center",marginBottom:28, position:"relative" }}>
+        {/* ⚙️ Settings icon top-left */}
+        <button onClick={()=>setShowSettings(true)}
+          title="Paramètres"
+          style={{ position:"absolute",left:0,top:0,width:36,height:36,borderRadius:"50%",border:`1px solid ${C.border}`,background:C.surface,cursor:"pointer",fontSize:17,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.08)",transition:"all .15s" }}>
+          ⚙️
+        </button>
+
         <h1 style={{ fontSize:32,fontWeight:700,color:C.text,margin:0,letterSpacing:-0.5 }}>Calendrier Éditorial</h1>
         <div style={{ fontSize:12,color:C.textTertiary,marginTop:5,letterSpacing:1.5,fontWeight:500 }}>
           {config.accounts.map(a=>a.id).join(" · ")}
         </div>
-        {/* User info + logout */}
         {user && (
           <div style={{ position:"absolute", right:0, top:0, display:"flex", alignItems:"center", gap:10 }}>
             <span style={{ fontSize:12, color:C.textSecondary, fontFamily:F }}>{user.email}</span>
@@ -1584,6 +2153,19 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {/* Settings modal */}
+      {showSettings&&(
+        <div onClick={()=>setShowSettings(false)} style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9000,display:"flex",alignItems:"flex-start",justifyContent:"flex-start",padding:"80px 20px" }}>
+          <div onClick={e=>e.stopPropagation()} style={{ background:C.surface,borderRadius:16,boxShadow:"0 8px 40px rgba(0,0,0,0.18)",width:"min(580px,95vw)",maxHeight:"82vh",overflowY:"auto" }}>
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px",borderBottom:`1px solid ${C.border}` }}>
+              <span style={{ fontSize:16,fontWeight:700,color:C.text,fontFamily:F }}>⚙️ Paramètres</span>
+              <button onClick={()=>setShowSettings(false)} style={{ background:C.surfaceSecondary,border:"none",width:28,height:28,borderRadius:"50%",cursor:"pointer",fontSize:16,color:C.textSecondary,display:"flex",alignItems:"center",justifyContent:"center" }}>×</button>
+            </div>
+            <div style={{ padding:20 }}><Settings config={config} setConfig={setConfig}/></div>
+          </div>
+        </div>
+      )}
 
       <div style={{ display:"flex",justifyContent:"center",marginBottom:24 }}>
         <div style={{ display:"inline-flex",background:"rgba(118,118,128,0.12)",borderRadius:12,padding:3,gap:2,flexWrap:"wrap" }}>
@@ -1624,6 +2206,8 @@ export default function App() {
       {view==="preview"&&<FeedPreview posts={posts}/>}
       {view==="archive"&&<Archive posts={posts}/>}
       {view==="library"&&<Library library={library} setLibrary={setLibrary} posts={posts} setPosts={setPosts} year={year} month={month} accountSettings={accountSettings} subfolders={subfolders} setSubfolders={setSubfolders}/>}
+      {view==="publication"&&<Publication posts={posts} setPosts={setPosts} config={config}/>}
+      {view==="guide"&&<Guide/>}
       {view==="settings"&&<Settings config={config} setConfig={setConfig}/>}
     </div>
     )} {/* end authChecked && user */}
