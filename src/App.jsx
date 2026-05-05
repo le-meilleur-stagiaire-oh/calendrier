@@ -155,7 +155,8 @@ STRICT RULES:
 - HOOK: The first sentence must be a powerful, unexpected opening. Never a question. Never a cliché.
 - LENGTH: 2 to 3 sentences per language.
 - TONE: British elegance written in American English. Restrained but felt.
-- BANNED WORDS: luxury, unique, unforgettable, magical, breathtaking, incredible, experience, world-class, prestigious, exceptional, exclusive, perfect, stunning, amazing, wonderful, paradise, dream, ultimate, unparalleled, exquisite.
+- BANNED WORDS AND PHRASES: luxury, unique, unforgettable, magical, breathtaking, incredible, experience, world-class, prestigious, exceptional, exclusive, perfect, stunning, amazing, wonderful, paradise, dream, ultimate, unparalleled, exquisite, sunset, golden hour, sunrise, twilight, dusk, "as the sun sets", "as the day ends", "bathed in light", "flooded with light".
+- DO NOT assume or mention any time of day, lighting condition, or moment of day unless it is explicitly and unambiguously visible in the image. Describe only what is present.
 - NO emojis. NO exclamation marks.
 
 FORMAT (follow exactly):
@@ -188,10 +189,11 @@ async function analyzeImageAndGenerate(imageUrl, imageBase64, account, credits, 
 
   // ── Step 1: vision call — ask ONLY for a short subject (simple JSON) ──────
   const visionPrompt = `You are a creative director for ultra-luxury hospitality.
-Look at this image and identify the mood, the light, the scene, the emotion it evokes.
+Look at this image and identify the mood, the scene, the emotion it evokes.
 
 Write a subject line in French for this image (5-10 words, magazine headline style).
 The subject should capture the essence of the image, not just describe it literally.
+IMPORTANT: Do NOT mention any time of day (sunset, sunrise, golden hour, twilight, dusk, dawn, evening, morning) unless it is unambiguously the main subject of the image.
 
 Return ONLY valid JSON with a single key: {"subject": "le sujet en français"}`;
 
@@ -2113,7 +2115,7 @@ export default function App() {
 
   const tabs=[
     {id:"calendar",label:"Calendrier"},{id:"preview",label:"Preview"},{id:"recap",label:"Récap"},
-    {id:"archive",label:"Archive"},{id:"library",label:"Librairie"},{id:"publication",label:"📤 Publication"},{id:"guide",label:"📖 Guide"},
+    {id:"archive",label:"Archive"},{id:"library",label:"Librairie"},{id:"publication",label:"Publication"},{id:"guide",label:"Guide"},
   ];
 
   return(
