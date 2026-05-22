@@ -269,15 +269,23 @@ Style guidelines:
 
   const accountInstructions = ACCOUNT_PROMPTS[account] || ACCOUNT_PROMPTS.HDCER;
 
+  // Build the suffix (mention + hashtags + credits) that the AI must append verbatim
+  const suffix = [
+    credits ? `${credits}\n\n—` : null,
+    mention,
+    "",
+    finalTags.join(" "),
+  ].filter(l => l !== null).join("\n");
+
   const prompt = `${accountInstructions}
 
 ADDITIONAL RULES (apply to all):
 - BANNED WORDS AND PHRASES: luxury, unique, unforgettable, magical, breathtaking, incredible, experience, world-class, prestigious, exceptional, exclusive, perfect, stunning, amazing, wonderful, paradise, dream, ultimate, unparalleled, exquisite, sunset, golden hour, sunrise, twilight, dusk, "as the sun sets", "as the day ends", "bathed in light", "flooded with light".
 - DO NOT mention any time of day unless it is unambiguously the main subject.
 - NO emojis. NO exclamation marks.
-${credits ? `- Credits: ${credits}` : ""}
+- "No hashtags" means do NOT write your own hashtags — but you MUST copy the exact suffix block below verbatim after the French caption.
 
-FORMAT (follow exactly, with ONE empty line before and after each —):
+OUTPUT FORMAT (copy exactly, including the — separators and the suffix block):
 
 [English caption]
 
@@ -286,11 +294,10 @@ FORMAT (follow exactly, with ONE empty line before and after each —):
 [French caption]
 
 —
-${credits ? `\n${credits}\n\n—\n` : ""}${mention}
 
-${finalTags.join(" ")}
+${suffix}
 
-Output ONLY the caption text. No labels, no brackets, no explanation.`;
+Output ONLY the caption text following this format exactly. No labels, no brackets, no explanation.`;
 
   try {
     const res  = await fetch("/api/generate", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ prompt }) });
