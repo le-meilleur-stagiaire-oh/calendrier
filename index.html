@@ -7,19 +7,24 @@
     <style>
       *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
       html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-      body { font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif; background: #F2F2F7; }
+      body { font-family: 'Helvetica Neue', Helvetica, -apple-system, 'SF Pro Text', sans-serif; background: #F7F6F3; }
       input, select, textarea, button { font-family: inherit; }
-      input:focus, select:focus, textarea:focus { border-color: #007AFF !important; box-shadow: 0 0 0 3px rgba(0,122,255,0.12) !important; }
-      button { transition: opacity .15s, transform .1s; }
-      button:active { opacity: 0.75; transform: scale(0.97); }
-      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      input:focus, select:focus, textarea:focus {
+        border-color: #2563EB !important;
+        box-shadow: 0 0 0 3px rgba(37,99,235,0.1) !important;
+        outline: none;
+      }
+      button { transition: opacity .12s, transform .1s; }
+      button:active { opacity: 0.72; transform: scale(0.97); }
+      button:hover { opacity: 0.88; }
+      a { text-decoration: none; }
+      ::-webkit-scrollbar { width: 5px; height: 5px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 10px; }
-      ::selection { background: rgba(0,122,255,0.2); }
+      ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 10px; }
+      ::selection { background: rgba(37,99,235,0.15); }
       /* Mobile */
       @media (max-width: 767px) {
-        body { background: #F2F2F7; }
-        input, select, textarea { font-size: 16px !important; } /* prevents iOS zoom */
+        input, select, textarea { font-size: 16px !important; }
       }
     </style>
   </head>
