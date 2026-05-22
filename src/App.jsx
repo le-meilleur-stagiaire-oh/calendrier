@@ -1098,7 +1098,7 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
       <div style={{ marginBottom:8 }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4 }}>
           <label style={{ ...labelStyle,marginBottom:0 }}>Sujet</label>
-          {subjects.length>0&&<button onClick={()=>onUpdate("subject",subjects[Math.floor(Math.random()*subjects.length)])} style={{ fontSize:10,padding:"2px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.surfaceSecondary,cursor:"pointer",color:"#666",fontFamily:F }}>Générer un sujet</button>}
+          {subjects.length>0&&<button onClick={()=>onUpdate("subject",subjects[Math.floor(Math.random()*subjects.length)])} style={{ fontSize:10,padding:"3px 10px",borderRadius:6,border:`1px solid ${C.border}`,background:C.surfaceSecondary,cursor:"pointer",color:C.textSecondary,fontFamily:F,fontWeight:500,letterSpacing:0.2 }}>↻ Générer un sujet</button>}
         </div>
         <input value={post.subject||""} onChange={e=>onUpdate("subject",e.target.value)} onBlur={e=>{if(e.target.value.trim()&&post.account&&!post.caption)onGenerate();}} placeholder="Ex: Vue panoramique depuis la terrasse..." style={inputStyle}/>
       </div>
@@ -1110,27 +1110,27 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
         <label style={labelStyle}>Médias</label>
         <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
           {(post.mediaItems||[]).map((item,i)=>(
-            <div key={i} style={{ padding:"6px 10px",background:C.surfaceSecondary,borderRadius:8,border:"1px solid #E8E8E8" }}>
+            <div key={i} style={{ padding:"8px 10px",background:C.surfaceSecondary,borderRadius:8,border:`1px solid ${C.border}` }}>
               <div style={{ display:"flex",gap:8,alignItems:"center" }}>
                 <input value={item.name||""} onChange={e=>{const items=[...(post.mediaItems||[])];items[i]={...items[i],name:e.target.value};onUpdate("mediaItems",items);}} placeholder="Nom du fichier" style={{ ...inputStyle,flex:1,fontSize:11,padding:"4px 6px" }}/>
-                <label style={{ padding:"3px 8px",borderRadius:6,border:`1px solid ${C.teal}`,background:"#fff",color:C.teal,cursor:"pointer",fontSize:10,fontFamily:F,fontWeight:500,whiteSpace:"nowrap" }}>
+                <label style={{ padding:"3px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.surface,color:C.textSecondary,cursor:"pointer",fontSize:10,fontFamily:F,fontWeight:500,whiteSpace:"nowrap" }}>
                   {item.fileData?"Changer":"Uploader"}
                   <input type="file" accept="image/*,video/*" style={{ display:"none" }} onChange={e=>{const file=e.target.files?.[0];if(!file)return;const r=new FileReader();r.onload=()=>{const items=[...(post.mediaItems||[])];items[i]={...items[i],fileData:r.result,fileName:file.name,name:items[i].name||file.name};onUpdate("mediaItems",items);};r.readAsDataURL(file);}}/>
                 </label>
                 <span onClick={()=>{const items=[...(post.mediaItems||[])];items.splice(i,1);onUpdate("mediaItems",items);}} style={{ fontSize:14,color:C.textTertiary,cursor:"pointer",padding:"0 4px" }} onMouseEnter={e=>e.target.style.color=C.red} onMouseLeave={e=>e.target.style.color=C.textTertiary}>×</span>
               </div>
-              {item.fileData&&item.fileData.startsWith("data:image")&&<img src={item.fileData} style={{ marginTop:6,maxWidth:120,maxHeight:80,borderRadius:6,objectFit:"cover",border:"1px solid #E8E8E8" }}/>}
-              {item.url&&item.fileType?.startsWith("image/")&&!item.fileData&&<img src={item.url} style={{ marginTop:6,maxWidth:120,maxHeight:80,borderRadius:6,objectFit:"cover",border:"1px solid #E8E8E8" }}/>}
-              {item.fileData&&item.fileData.startsWith("data:video")&&<div style={{ marginTop:6,fontSize:10,color:C.teal,fontFamily:F }}>Vidéo : {item.fileName||"uploadée"}</div>}
+              {item.fileData&&item.fileData.startsWith("data:image")&&<img src={item.fileData} style={{ marginTop:6,maxWidth:120,maxHeight:80,borderRadius:6,objectFit:"cover",border:`1px solid ${C.border}` }}/>}
+              {item.url&&item.fileType?.startsWith("image/")&&!item.fileData&&<img src={item.url} style={{ marginTop:6,maxWidth:120,maxHeight:80,borderRadius:6,objectFit:"cover",border:`1px solid ${C.border}` }}/>}
+              {item.fileData&&item.fileData.startsWith("data:video")&&<div style={{ marginTop:6,fontSize:10,color:C.textSecondary,fontFamily:F }}>Vidéo : {item.fileName||"uploadée"}</div>}
               <div style={{ display:"flex",gap:6,alignItems:"center",marginTop:4 }}>
                 <input value={item.driveUrl||""} onChange={e=>{const items=[...(post.mediaItems||[])];items[i]={...items[i],driveUrl:e.target.value};onUpdate("mediaItems",items);}} placeholder="Lien Google Drive (optionnel)" style={{ ...inputStyle,fontSize:10,padding:"3px 6px",flex:1 }}/>
-                {item.driveUrl&&<a href={item.driveUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize:10,color:C.teal,textDecoration:"none",whiteSpace:"nowrap" }}>Ouvrir</a>}
+                {item.driveUrl&&<a href={item.driveUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize:10,color:C.blue,textDecoration:"none",whiteSpace:"nowrap" }}>Ouvrir</a>}
               </div>
             </div>
           ))}
           <div style={{ display:"flex",gap:6 }}>
-            <button onClick={()=>{const items=[...(post.mediaItems||[])];items.push({name:"",fileData:null,fileName:"",driveUrl:""});onUpdate("mediaItems",items);}} style={{ flex:1,padding:"6px 12px",borderRadius:8,border:"1px dashed #D0D5DD",background:C.surfaceSecondary,cursor:"pointer",fontSize:11,color:C.textSecondary,fontFamily:F,display:"flex",alignItems:"center",gap:6,justifyContent:"center" }}>+ Uploader un média</button>
-            <button onClick={()=>setShowLibrary(true)} style={{ flex:1,padding:"6px 12px",borderRadius:8,border:"1px dashed #1A365D",background:"#F0F4FA",cursor:"pointer",fontSize:11,color:C.text,fontFamily:F,display:"flex",alignItems:"center",gap:6,justifyContent:"center",fontWeight:500 }}>📁 Choisir depuis la librairie</button>
+            <button onClick={()=>{const items=[...(post.mediaItems||[])];items.push({name:"",fileData:null,fileName:"",driveUrl:""});onUpdate("mediaItems",items);}} style={{ flex:1,padding:"7px 12px",borderRadius:8,border:`1px dashed ${C.border}`,background:C.surfaceSecondary,cursor:"pointer",fontSize:11,color:C.textSecondary,fontFamily:F,display:"flex",alignItems:"center",gap:6,justifyContent:"center" }}>+ Uploader un média</button>
+            <button onClick={()=>setShowLibrary(true)} style={{ flex:1,padding:"7px 12px",borderRadius:8,border:`1px dashed ${C.border}`,background:C.surfaceSecondary,cursor:"pointer",fontSize:11,color:C.text,fontFamily:F,display:"flex",alignItems:"center",gap:6,justifyContent:"center",fontWeight:500 }}>📁 Choisir depuis la librairie</button>
           </div>
         </div>
       </div>
@@ -1149,7 +1149,7 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
               if(result.error)alert(`Erreur : ${result.error}`);
               else{if(result.subject)onUpdate("subject",result.subject);if(result.caption)onUpdate("caption",result.caption);}
               setAnalyzingImage(false);
-            }} style={{ width:"100%",padding:"10px 16px",borderRadius:10,border:"none",background:analyzingImage?C.surfaceSecondary:`linear-gradient(135deg,${C.indigo},${C.blue})`,color:analyzingImage?C.textSecondary:"#fff",cursor:analyzingImage?"default":"pointer",fontSize:13,fontFamily:F,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8,boxShadow:analyzingImage?"none":`0 2px 12px ${C.blue}44` }}>
+            }} style={{ width:"100%",padding:"10px 16px",borderRadius:10,border:"none",background:analyzingImage?C.surfaceSecondary:C.text,color:analyzingImage?C.textSecondary:"#fff",cursor:analyzingImage?"default":"pointer",fontSize:13,fontFamily:F,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8,boxShadow:analyzingImage?"none":"0 1px 3px rgba(0,0,0,0.15)",letterSpacing:0.2 }}>
               {analyzingImage?<><span>⏳</span> Analyse en cours...</>:<><span>✨</span> Analyser l'image et générer la caption</>}
             </button>
           </div>
@@ -1159,12 +1159,12 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
         <div style={{ marginBottom:10 }}>
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4 }}>
             <label style={labelStyle}>Caption</label>
-            <button onClick={onGenerate} disabled={generating||!post.subject||!post.account} style={{ fontSize:10,padding:"2px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.surfaceSecondary,cursor:"pointer",color:"#666",fontFamily:F }}>Regénérer</button>
+            <button onClick={onGenerate} disabled={generating||!post.subject||!post.account} style={{ fontSize:10,padding:"3px 10px",borderRadius:6,border:`1px solid ${C.border}`,background:C.surfaceSecondary,cursor:"pointer",color:C.textSecondary,fontFamily:F,fontWeight:500 }}>↻ Regénérer</button>
           </div>
           <textarea value={post.caption} onChange={e=>onUpdate("caption",e.target.value)} rows={12} style={{ ...inputStyle,lineHeight:1.6,minHeight:200,resize:"vertical" }}/>
         </div>
       )}
-      {post.caption&&<button onClick={()=>{navigator.clipboard.writeText(post.caption);setCopied(true);setTimeout(()=>setCopied(false),2000);}} style={{ padding:"6px 14px",borderRadius:8,border:`1px solid ${C.blue}`,background:copied?C.green:C.blue,color:"#fff",cursor:"pointer",fontSize:11,fontFamily:F,letterSpacing:0.5,fontWeight:500,transition:"background .2s" }}>{copied?"Copié !":"Copier la caption"}</button>}
+      {post.caption&&<button onClick={()=>{navigator.clipboard.writeText(post.caption);setCopied(true);setTimeout(()=>setCopied(false),2000);}} style={{ padding:"7px 16px",borderRadius:8,border:"none",background:copied?C.green:C.text,color:"#fff",cursor:"pointer",fontSize:12,fontFamily:F,letterSpacing:0.3,fontWeight:500,transition:"background .2s",boxShadow:"0 1px 3px rgba(0,0,0,0.12)" }}>{copied?"✓ Copié !":"Copier la caption"}</button>}
     </div>
   );
 }
