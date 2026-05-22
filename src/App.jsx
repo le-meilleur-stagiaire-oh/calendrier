@@ -104,25 +104,88 @@ const AccountsContext = createContext({
 });
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
-const F = "-apple-system,'SF Pro Display','SF Pro Text','Helvetica Neue',sans-serif";
+const F = "'Helvetica Neue',Helvetica,-apple-system,'SF Pro Text',sans-serif";
 const C = {
-  bg: "#F2F2F7", surface: "#FFFFFF", surfaceSecondary: "#F2F2F7",
-  elevated: "rgba(255,255,255,0.85)", border: "rgba(0,0,0,0.08)",
-  borderStrong: "rgba(0,0,0,0.13)", text: "#1C1C1E", textSecondary: "#636366",
-  textTertiary: "#AEAEB2", blue: "#007AFF", green: "#34C759", red: "#FF3B30",
-  orange: "#FF9500", indigo: "#5856D6", teal: "#5AC8FA",
+  // Backgrounds — warm white, not cold iOS grey
+  bg:              "#F7F6F3",
+  surface:         "#FFFFFF",
+  surfaceSecondary:"#F7F6F3",
+  surfaceHover:    "#F0EFE9",
+  elevated:        "rgba(255,255,255,0.92)",
+
+  // Borders — very subtle
+  border:          "rgba(0,0,0,0.07)",
+  borderStrong:    "rgba(0,0,0,0.12)",
+
+  // Text hierarchy
+  text:            "#18181B",
+  textSecondary:   "#52525B",
+  textTertiary:    "#A1A1AA",
+
+  // Accents — toned down, less iOS-blue
+  blue:    "#2563EB",
+  green:   "#16A34A",
+  red:     "#DC2626",
+  orange:  "#EA580C",
+  indigo:  "#4F46E5",
+  teal:    "#0891B2",
+  gold:    "#B45309",
 };
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
-const selectStyle = { padding:"6px 10px",borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:F,color:C.text,background:C.surfaceSecondary,cursor:"pointer",outline:"none",appearance:"none",WebkitAppearance:"none" };
-const inputStyle  = { width:"100%",padding:"9px 12px",borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:F,color:C.text,background:C.surfaceSecondary,outline:"none",boxSizing:"border-box",transition:"border-color .15s" };
-const labelStyle  = { fontSize:11,fontWeight:600,color:C.textTertiary,letterSpacing:0.5,textTransform:"uppercase",fontFamily:F,display:"block",marginBottom:5 };
-const navBtn      = { width:32,height:32,borderRadius:"50%",border:`1px solid ${C.border}`,background:C.elevated,cursor:"pointer",fontSize:18,color:C.blue,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",boxShadow:"0 1px 3px rgba(0,0,0,0.08)" };
-const cardStyle   = { background:C.surface,borderRadius:16,border:`1px solid ${C.border}`,overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,0.06)" };
-const pillBtn     = (active, color) => ({ padding:"6px 16px",borderRadius:20,border:`1.5px solid ${color||C.blue}`,background:active?(color||C.blue):"transparent",color:active?"#fff":(color||C.blue),cursor:"pointer",fontSize:12,fontFamily:F,fontWeight:600,transition:"all .18s",letterSpacing:0.2 });
+const selectStyle = {
+  padding:"7px 11px", borderRadius:8, border:`1px solid ${C.border}`,
+  fontSize:13, fontFamily:F, color:C.text, background:C.surface,
+  cursor:"pointer", outline:"none", appearance:"none", WebkitAppearance:"none",
+  boxShadow:"0 1px 2px rgba(0,0,0,0.04)",
+};
+const inputStyle = {
+  width:"100%", padding:"9px 12px", borderRadius:8, border:`1px solid ${C.border}`,
+  fontSize:14, fontFamily:F, color:C.text, background:C.surface, outline:"none",
+  boxSizing:"border-box", transition:"border-color .15s, box-shadow .15s",
+  boxShadow:"0 1px 2px rgba(0,0,0,0.04)",
+};
+const labelStyle = {
+  fontSize:10, fontWeight:700, color:C.textTertiary, letterSpacing:0.8,
+  textTransform:"uppercase", fontFamily:F, display:"block", marginBottom:5,
+};
+const navBtn = {
+  width:34, height:34, borderRadius:"50%", border:`1px solid ${C.border}`,
+  background:C.surface, cursor:"pointer", fontSize:17, color:C.text,
+  display:"flex", alignItems:"center", justifyContent:"center",
+  boxShadow:"0 1px 3px rgba(0,0,0,0.07)", transition:"all .15s",
+};
+const cardStyle = {
+  background:C.surface, borderRadius:20, border:`1px solid ${C.border}`,
+  overflow:"hidden", boxShadow:"0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04)",
+};
+const pillBtn = (active, color) => ({
+  padding:"5px 14px", borderRadius:20,
+  border:`1.5px solid ${color||C.blue}`,
+  background: active ? (color||C.blue) : "transparent",
+  color: active ? "#fff" : (color||C.blue),
+  cursor:"pointer", fontSize:11, fontFamily:F, fontWeight:600,
+  transition:"all .18s", letterSpacing:0.3,
+});
+
+// Primary CTA button
+const btnPrimary = (color) => ({
+  padding:"9px 20px", borderRadius:10, border:"none",
+  background: color || C.text, color:"#fff",
+  cursor:"pointer", fontSize:13, fontFamily:F, fontWeight:600,
+  letterSpacing:0.2, transition:"opacity .15s",
+  boxShadow:`0 1px 3px rgba(0,0,0,0.15)`,
+});
+// Secondary button
+const btnSecondary = {
+  padding:"9px 16px", borderRadius:10,
+  border:`1px solid ${C.border}`, background:C.surface,
+  color:C.textSecondary, cursor:"pointer", fontSize:13, fontFamily:F,
+  fontWeight:500, transition:"all .15s",
+};
 
 function Badge({ text, bg, fg, border: bd }) {
-  return <span style={{ display:"inline-block",padding:"2px 8px",borderRadius:8,background:bg||"transparent",color:fg||C.textSecondary,fontSize:10,fontWeight:600,fontFamily:F,border:bd?`1px solid ${bd}`:"none",letterSpacing:0.3 }}>{text}</span>;
+  return <span style={{ display:"inline-block", padding:"2px 8px", borderRadius:6, background:bg||"transparent", color:fg||C.textSecondary, fontSize:10, fontWeight:700, fontFamily:F, border:bd?`1px solid ${bd}`:"none", letterSpacing:0.4 }}>{text}</span>;
 }
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -763,9 +826,9 @@ function OpenClosedPanel({ accountSettings, setAccountSettings, month, onGenerat
           );
         })}
       </div>
-      <div style={{ display:"flex",gap:8,marginTop:14,justifyContent:"flex-end" }}>
-        {onClear&&<button onClick={onClear} style={{ padding:"8px 16px",borderRadius:10,border:`1px solid ${C.red}`,background:"transparent",color:C.red,cursor:"pointer",fontFamily:F,fontSize:13,fontWeight:500 }}>Effacer le planning</button>}
-        {onGenerate&&<button onClick={onGenerate} style={{ padding:"8px 18px",borderRadius:10,border:"none",background:C.blue,color:"#fff",cursor:"pointer",fontFamily:F,fontSize:13,fontWeight:600,boxShadow:`0 2px 8px ${C.blue}44` }}>Générer le planning</button>}
+      <div style={{ display:"flex",gap:8,marginTop:16,justifyContent:"flex-end" }}>
+        {onClear&&<button onClick={onClear} style={{ ...btnSecondary, color:C.red, borderColor:`${C.red}40` }}>Effacer le planning</button>}
+        {onGenerate&&<button onClick={onGenerate} style={{ ...btnPrimary() }}>Générer le planning</button>}
       </div>
     </div>
   );
@@ -776,7 +839,7 @@ function Stats({ posts }) {
   const all=Object.values(posts).flat();
   const byAcc={}; accounts.forEach(a=>{byAcc[a.id]=0;}); all.forEach(p=>{if(p.account&&byAcc[p.account]!==undefined)byAcc[p.account]++;});
   const byType={Photo:0,Carrousel:0,Reel:0}; all.forEach(p=>{if(p.type&&byType[p.type]!==undefined)byType[p.type]++;});
-  const box={background:C.surface,borderRadius:12,border:`1px solid ${C.border}`,padding:"10px 16px",textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.05)"};
+  const box = { background:C.surface, borderRadius:12, border:`1px solid ${C.border}`, padding:"10px 18px", textAlign:"center", boxShadow:"0 1px 3px rgba(0,0,0,0.05)" };
   return (
     <div style={{ display:"flex",gap:8,flexWrap:"wrap",marginBottom:14 }}>
       <div style={box}><div style={{ fontSize:10,color:C.textTertiary,letterSpacing:0.5,textTransform:"uppercase",fontFamily:F,fontWeight:600 }}>Total</div><div style={{ fontSize:22,fontWeight:700,color:C.text,fontFamily:F }}>{all.length}</div></div>
@@ -939,12 +1002,22 @@ function CalendarMonth({ year, month, posts, onDayClick, selectedDay, onDeletePo
           const dayPosts=dateKey?(posts[dateKey]||[]):[];
           const isSel=day===selectedDay; const isWe=i%7>=5; const isDrag=dragOver===dateKey;
           const isToday=day&&new Date().getDate()===day&&new Date().getMonth()===month&&new Date().getFullYear()===year;
+          // Subtle status tint on cell
+          const statusBg=(()=>{
+            if(!day||dayPosts.length===0) return null;
+            const ss=dayPosts.map(p=>p.status||"Brouillon");
+            if(ss.every(s=>s==="Publié")) return `${C.green}12`;
+            if(ss.every(s=>s==="Validé"||s==="Publié")) return `${C.green}08`;
+            if(ss.some(s=>s==="Programmé")) return `${C.indigo}08`;
+            if(ss.some(s=>s==="En cours")) return `${C.blue}07`;
+            return null;
+          })();
           return(
             <div key={i} onClick={()=>day&&onDayClick(day)}
               onDragOver={e=>{if(!dateKey)return;e.preventDefault();setDragOver(dateKey);}}
               onDragLeave={()=>setDragOver(null)}
               onDrop={e=>{e.preventDefault();setDragOver(null);if(!dateKey)return;try{const data=JSON.parse(e.dataTransfer.getData("text/plain"));if(data.fromDateKey!==dateKey)onDropPost(data.fromDateKey,data.fromIndex,dateKey);}catch{}}}
-              style={{ minHeight:isMobile?60:90,padding:isMobile?"3px 3px":"6px 6px 4px",borderRight:(i+1)%7!==0?`1px solid ${C.border}`:"none",borderBottom:`1px solid ${C.border}`,cursor:day?"pointer":"default",background:isDrag?`${C.blue}08`:isSel?`${C.blue}06`:isWe&&day?C.surfaceSecondary:day?C.surface:C.surfaceSecondary,transition:"background .12s",position:"relative",outline:isDrag?`2px dashed ${C.blue}`:"none" }}>
+              style={{ minHeight:isMobile?60:90,padding:isMobile?"3px 3px":"6px 6px 4px",borderRight:(i+1)%7!==0?`1px solid ${C.border}`:"none",borderBottom:`1px solid ${C.border}`,cursor:day?"pointer":"default",background:isDrag?`${C.blue}10`:isSel?`${C.blue}05`:statusBg||(isWe&&day?C.surfaceSecondary:day?C.surface:C.surfaceSecondary),transition:"background .12s",position:"relative",outline:isDrag?`2px dashed ${C.blue}`:"none" }}>
               {day&&(<>
                 <div style={{ fontSize:13,fontWeight:isToday?700:isSel?600:400,color:isToday?"#fff":isSel?C.blue:isWe?C.textSecondary:C.text,fontFamily:F,marginBottom:4,width:22,height:22,borderRadius:"50%",background:isToday?C.blue:"transparent",display:"flex",alignItems:"center",justifyContent:"center" }}>{day}</div>
                 <div style={{ display:"flex",flexDirection:"column",gap:3 }}>
@@ -991,7 +1064,7 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
   const suggestedTime=post.account&&bestTimes[post.account]?(isWeekend?bestTimes[post.account].weekend:bestTimes[post.account].weekday):null;
   const subjects=post.account&&subjectBank[post.account]?subjectBank[post.account]:[];
   return(
-    <div style={{ background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,padding:16,marginBottom:10,borderLeft:`3px solid ${acc?.color||C.border}`,boxShadow:"0 1px 4px rgba(0,0,0,0.05)" }}>
+    <div style={{ background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,padding:16,marginBottom:10,borderLeft:`3px solid ${acc?.color||C.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)" }}>
       <div style={{ display:"flex",gap:8,marginBottom:12,alignItems:"center",flexWrap:"wrap" }}>
         <select value={post.account} onChange={e=>onUpdate("account",e.target.value)} style={selectStyle}>
           <option value="">Compte</option>
@@ -1143,10 +1216,10 @@ function DayView({ year, month, day, dateKey, dayName, posts, setPosts, onClose 
   return(
     <div style={{ background:C.surface,borderRadius:16,border:`1px solid ${C.border}`,padding:20,marginTop:14,boxShadow:"0 2px 12px rgba(0,0,0,0.06)" }}>
       <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16 }}>
-        <h3 style={{ fontFamily:F,fontSize:17,fontWeight:700,color:C.text,margin:0,letterSpacing:-0.2 }}>{dayName} {day} {MONTHS_FR[month]} {year}</h3>
-        <button onClick={addPost} style={{ padding:"7px 16px",borderRadius:10,border:"none",background:C.blue,color:"#fff",cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:600,boxShadow:`0 2px 8px ${C.blue}44` }}>+ Ajouter</button>
+        <h3 style={{ fontFamily:F,fontSize:16,fontWeight:700,color:C.text,margin:0,letterSpacing:-0.2 }}>{dayName} {day} {MONTHS_FR[month]} {year}</h3>
+        <button onClick={addPost} style={{ ...btnPrimary(), fontSize:12, padding:"7px 16px" }}>+ Ajouter</button>
       </div>
-      {dayPosts.length===0&&<div style={{ padding:30,textAlign:"center",color:C.textTertiary,fontSize:14,fontFamily:F }}>Aucun post prévu — cliquez sur "+ Ajouter"</div>}
+      {dayPosts.length===0&&<div style={{ padding:30,textAlign:"center",color:C.textTertiary,fontSize:13,fontFamily:F }}>Aucun post prévu — cliquez sur "+ Ajouter"</div>}
       {dayPosts.map((post,idx)=>(
         <PostEditor key={idx} post={post} dateKey={dateKey} index={idx} generating={generatingKey===idx}
           onUpdate={(field,val)=>{updatePost(idx,field,val);if(field==="account"&&posts[dateKey]?.[idx]?.subject&&val)setTimeout(()=>handleGen(idx),300);}}
@@ -1582,7 +1655,9 @@ function Library({ library, setLibrary, posts, setPosts, year, month, accountSet
           <button onClick={()=>{setBulkMode(b=>!b);setBulkSel([]);}} style={{ padding:"8px 16px",borderRadius:10,border:`1px solid ${bulkMode?C.orange:C.border}`,background:bulkMode?`${C.orange}15`:"transparent",color:bulkMode?C.orange:C.textSecondary,cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:600 }}>
             {bulkMode?`✓ ${bulkSel.length} sélectionné${bulkSel.length>1?"s":""}` :"☑ Sélection multiple"}
           </button>
-          <button onClick={()=>setBatchMode(true)} style={{ padding:"8px 16px",borderRadius:10,border:"none",background:`linear-gradient(135deg,${C.indigo},${C.blue})`,color:"#fff",cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:600,boxShadow:`0 2px 10px ${C.blue}44` }}>✨ Batch</button>
+          <button onClick={()=>setBatchMode(true)} style={{ ...btnPrimary(), fontSize:12, padding:"7px 14px" }}>
+            ✨ Batch
+          </button>
         </div>
       </div>
 
@@ -1796,10 +1871,10 @@ function Publication({ posts, setPosts, config }) {
             <div style={{ fontSize:12,color:C.textSecondary,fontFamily:F,marginTop:2 }}>{filtered.length} post{filtered.length!==1?"s":""} affichés</div>
           </div>
           <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
-            <button onClick={copyAllCaptions} style={{ padding:"8px 16px",borderRadius:10,border:"none",background:C.indigo,color:"#fff",cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:600 }}>
-              📋 Copier toutes les captions
+            <button onClick={copyAllCaptions} style={{ ...btnPrimary(C.indigo), fontSize:12, padding:"8px 14px" }}>
+              Copier toutes les captions
             </button>
-            <button onClick={downloadAll} disabled={zipping} style={{ padding:"8px 16px",borderRadius:10,border:"none",background:C.green,color:"#fff",cursor:zipping?"default":"pointer",fontSize:13,fontFamily:F,fontWeight:600,opacity:zipping?0.7:1 }}>
+            <button onClick={downloadAll} disabled={zipping} style={{ ...btnPrimary(C.green), fontSize:12, padding:"8px 14px", opacity:zipping?0.6:1 }}>
               {zipping ? "Téléchargement..." : "⬇ Télécharger toutes les images"}
             </button>
           </div>
@@ -2252,9 +2327,9 @@ export default function App() {
 
       {(view==="calendar"||view==="recap")&&(
         <div style={{ display:"flex",alignItems:"center",gap:16,justifyContent:"center",marginBottom:16 }}>
-          <button onClick={prevMonth} style={navBtn}>‹</button>
-          <h2 style={{ fontFamily:F,fontSize:isMobile?18:22,fontWeight:700,color:C.text,letterSpacing:-0.3,margin:0,minWidth:isMobile?160:220,textAlign:"center" }}>{MONTHS_FR[month]} {year}</h2>
-          <button onClick={nextMonth} style={navBtn}>›</button>
+          <button onClick={prevMonth} style={{ ...navBtn, fontSize:20, color:C.textSecondary }}>‹</button>
+          <h2 style={{ fontFamily:F,fontSize:isMobile?17:20,fontWeight:700,color:C.text,letterSpacing:-0.3,margin:0,minWidth:isMobile?160:210,textAlign:"center" }}>{MONTHS_FR[month]} {year}</h2>
+          <button onClick={nextMonth} style={{ ...navBtn, fontSize:20, color:C.textSecondary }}>›</button>
         </div>
       )}
 
@@ -2296,14 +2371,17 @@ export default function App() {
     {authChecked&&(user||!auth)&&(
       <div style={{ fontFamily:F,background:C.bg,minHeight:"100vh",paddingBottom:70 }}>
         {/* Mobile header */}
-        <div style={{ position:"sticky",top:0,zIndex:100,background:C.elevated,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:`1px solid ${C.border}`,padding:"12px 16px 10px",display:"flex",alignItems:"center",justifyContent:"space-between" }}>
-          <button onClick={()=>setShowSettings(true)} style={{ width:34,height:34,borderRadius:"50%",border:`1px solid ${C.border}`,background:C.surfaceSecondary,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center" }}>⚙️</button>
+        <div style={{ position:"sticky", top:0, zIndex:100, background:C.elevated, backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)", borderBottom:`1px solid ${C.border}`, padding:"10px 16px 10px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <button onClick={()=>setShowSettings(true)} style={{ width:34, height:34, borderRadius:"50%", border:`1px solid ${C.border}`, background:C.surface, cursor:"pointer", fontSize:15, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 1px 2px rgba(0,0,0,0.06)" }}>⚙️</button>
           <div style={{ textAlign:"center" }}>
-            <div style={{ fontSize:16,fontWeight:700,color:C.text,fontFamily:F,letterSpacing:-0.3 }}>Calendrier Éditorial</div>
-            <div style={{ fontSize:10,color:C.textTertiary,fontFamily:F,letterSpacing:1 }}>{config.accounts.map(a=>a.id).join(" · ")}</div>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:5 }}>
+              <span style={{ fontSize:12 }}>😉</span>
+              <span style={{ fontSize:13, fontWeight:700, color:C.text, fontFamily:F, letterSpacing:-0.2 }}>Winking 247</span>
+            </div>
+            <div style={{ fontSize:9, color:C.textTertiary, fontFamily:F, letterSpacing:1.5, marginTop:1 }}>{config.accounts.map(a=>a.id).join(" · ")}</div>
           </div>
           {user
-            ? <button onClick={handleLogout} style={{ width:34,height:34,borderRadius:"50%",border:`1px solid ${C.border}`,background:C.surfaceSecondary,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",color:C.textSecondary }}>↩</button>
+            ? <button onClick={handleLogout} style={{ width:34, height:34, borderRadius:"50%", border:`1px solid ${C.border}`, background:C.surface, cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", justifyContent:"center", color:C.textSecondary }}>↩</button>
             : <div style={{ width:34 }}/>
           }
         </div>
@@ -2348,31 +2426,54 @@ export default function App() {
     {authChecked && !user && auth && <LoginPage />}
     {authChecked && (user || !auth) && (
 
-    <div style={{ fontFamily:F,background:C.bg,minHeight:"100vh",padding:"28px 20px" }}>
-      <div style={{ textAlign:"center",marginBottom:28, position:"relative" }}>
+    <div style={{ fontFamily:F, background:C.bg, minHeight:"100vh", padding:"32px 24px" }}>
+      {/* Header */}
+      <div style={{ textAlign:"center", marginBottom:32, position:"relative" }}>
         <button onClick={()=>setShowSettings(true)} title="Paramètres"
-          style={{ position:"absolute",left:0,top:0,width:36,height:36,borderRadius:"50%",border:`1px solid ${C.border}`,background:C.surface,cursor:"pointer",fontSize:17,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.08)" }}>
+          style={{ position:"absolute", left:0, top:"50%", transform:"translateY(-50%)", width:36, height:36, borderRadius:"50%", border:`1px solid ${C.border}`, background:C.surface, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 1px 3px rgba(0,0,0,0.07)" }}>
           ⚙️
         </button>
-        <h1 style={{ fontSize:32,fontWeight:700,color:C.text,margin:0,letterSpacing:-0.5 }}>Calendrier Éditorial</h1>
-        <div style={{ fontSize:12,color:C.textTertiary,marginTop:5,letterSpacing:1.5,fontWeight:500 }}>{config.accounts.map(a=>a.id).join(" · ")}</div>
+
+        {/* App identity — discreet */}
+        <div style={{ display:"inline-flex", alignItems:"center", gap:6, marginBottom:6, padding:"3px 12px", borderRadius:20, background:C.surface, border:`1px solid ${C.border}`, boxShadow:"0 1px 3px rgba(0,0,0,0.06)" }}>
+          <span style={{ fontSize:13 }}>😉</span>
+          <span style={{ fontSize:11, fontWeight:600, color:C.textTertiary, letterSpacing:1.2, textTransform:"uppercase" }}>Winking 247</span>
+        </div>
+
+        <h1 style={{ fontSize:28, fontWeight:700, color:C.text, margin:0, letterSpacing:-0.5, lineHeight:1.1 }}>
+          Calendrier Éditorial
+        </h1>
+        <div style={{ fontSize:11, color:C.textTertiary, marginTop:6, letterSpacing:2, fontWeight:500 }}>
+          {config.accounts.map(a=>a.id).join("  ·  ")}
+        </div>
+
         {user && (
-          <div style={{ position:"absolute", right:0, top:0, display:"flex", alignItems:"center", gap:10 }}>
-            <span style={{ fontSize:12, color:C.textSecondary, fontFamily:F }}>{user.email}</span>
-            <button onClick={handleLogout} style={{ padding:"5px 12px", borderRadius:8, border:`1px solid ${C.border}`, background:C.surface, color:C.textSecondary, cursor:"pointer", fontSize:12, fontFamily:F, fontWeight:500 }}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor=C.red;e.currentTarget.style.color=C.red;}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.textSecondary;}}>
+          <div style={{ position:"absolute", right:0, top:"50%", transform:"translateY(-50%)", display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:12, color:C.textTertiary, fontFamily:F }}>{user.email}</span>
+            <button onClick={handleLogout}
+              style={{ padding:"5px 12px", borderRadius:8, border:`1px solid ${C.border}`, background:C.surface, color:C.textSecondary, cursor:"pointer", fontSize:12, fontFamily:F, fontWeight:500 }}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor=C.red; e.currentTarget.style.color=C.red;}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.textSecondary;}}>
               Déconnexion
             </button>
           </div>
         )}
       </div>
 
-      <div style={{ display:"flex",justifyContent:"center",marginBottom:24 }}>
-        <div style={{ display:"inline-flex",background:"rgba(118,118,128,0.12)",borderRadius:12,padding:3,gap:2,flexWrap:"wrap" }}>
+      {/* Desktop tab bar */}
+      <div style={{ display:"flex", justifyContent:"center", marginBottom:28 }}>
+        <div style={{ display:"inline-flex", background:C.surface, borderRadius:12, padding:4, gap:2, border:`1px solid ${C.border}`, boxShadow:"0 1px 3px rgba(0,0,0,0.06)" }}>
           {[...tabs.filter(t=>t.id!=="more"),...moreTabs].map(t=>(
             <button key={t.id} onClick={()=>setView(t.id)}
-              style={{ padding:"7px 18px",borderRadius:10,border:"none",background:view===t.id?C.surface:"transparent",color:view===t.id?C.text:C.textSecondary,cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:view===t.id?600:400,transition:"all .18s",boxShadow:view===t.id?"0 1px 4px rgba(0,0,0,0.1)":"none" }}>
+              style={{ padding:"7px 16px", borderRadius:9, border:"none",
+                background: view===t.id ? C.bg : "transparent",
+                color: view===t.id ? C.text : C.textTertiary,
+                cursor:"pointer", fontSize:13, fontFamily:F,
+                fontWeight: view===t.id ? 600 : 400,
+                transition:"all .15s",
+                boxShadow: view===t.id ? `0 1px 3px rgba(0,0,0,0.08)` : "none",
+                letterSpacing: 0.1,
+              }}>
               {t.label}
             </button>
           ))}
