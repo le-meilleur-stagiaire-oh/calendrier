@@ -8,7 +8,18 @@ import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "firebase/auth";
 
-// ── Firebase ─────────────────────────────────────────────────────────────────
+// ── Mobile detection ──────────────────────────────────────────────────────────
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return isMobile;
+}
+
+
 const firebaseConfig = {
   apiKey:      import.meta.env.VITE_FIREBASE_API_KEY      || "",
   authDomain:  import.meta.env.VITE_FIREBASE_AUTH_DOMAIN  || "",
@@ -138,42 +149,85 @@ function buildFinalHashtags(account, hashtagBank, mandatory) {
 }
 
 async function generateCaption(subject, account, credits, voices, hashtagBank, mandatory, mentions) {
-  const voice     = voices[account] || "";
   const finalTags = buildFinalHashtags(account, hashtagBank, mandatory);
   const mention   = mentions[account] || "@oetkerhotels";
 
-  const prompt = `You are an elite social media copywriter specializing in ultra-luxury hospitality.
-You write for ${account}, whose voice is:
-${voice}
+  const ACCOUNT_PROMPTS = {
+    HDCER: `I need a caption in English and then in French for Hôtel du Cap-Eden-Roc.
+The subject is: ${subject}
+Tone guidelines:
+Write in an elegant but simple way. Keep the language easy to read and natural, not sophisticated or formal. Avoid anything that feels pretentious or like we are showing off. The tone should feel close, warm, and direct, as if we are speaking to the audience.
+Style guidelines:
+* The first sentence must be super short and mega hooky because we actually see it without opening the caption
+* Do not start with "At Hotel du Cap..."
+* Maximum 5 sentences per language
+* No hashtags
+* Smooth, natural flow (not too many short broken sentences)
+* Focus on atmosphere, feelings, and simple moments rather than luxury buzzwords
+* Avoid repeating the exact same structure in English and French (adapt naturally)`,
 
-Subject: ${subject}
-${credits ? `Credits: ${credits}` : ""}
+    CSM: `I need a caption in English and then in French for Château Saint-Martin & Spa.
+The subject is: ${subject}
+Tone guidelines:
+Write in an elegant but simple way. Keep the language easy to read and natural, not sophisticated or formal. Avoid anything that feels pretentious or like we are showing off. The tone should feel close, warm, and direct, as if we are speaking to the audience.
+Style guidelines:
+* Do not start with "At Chateau Saint-Martin..."
+* The first sentence must be super short and mega hooky because we actually see it without opening the caption
+* Maximum 5 sentences per language
+* No hashtags
+* Smooth, natural flow (not too many short broken sentences)
+* Focus on atmosphere, feelings, and simple moments rather than luxury buzzwords
+* Avoid repeating the exact same structure in English and French (adapt naturally)`,
 
-Your task: write an Instagram caption that makes the reader FEEL something — nostalgia, desire, calm, excitement — as if they are already there or desperately want to be.
+    APG: `I need a caption in English and then in French for L'Apogée Courchevel.
+The subject is: ${subject}
+Tone guidelines:
+Write in an elegant but simple way. Keep the language easy to read and natural, not sophisticated or formal. Avoid anything that feels pretentious or like we are showing off. The tone should feel close, warm, and direct, as if we are speaking to the audience.
+Style guidelines:
+* Maximum 5 sentences per language
+* No hashtags
+* Smooth, natural flow (not too many short broken sentences)
+* Focus on atmosphere, feelings, and simple moments rather than luxury buzzwords
+* Avoid repeating the exact same structure in English and French (adapt naturally)`,
 
-STRICT RULES:
-- HOOK: The first sentence must be a powerful, unexpected opening. Never a question. Never a cliché.
-- LENGTH: 2 to 3 sentences per language.
-- TONE: British elegance written in American English. Restrained but felt.
+    BB: `I need a caption in English and then in French for Beefbar Courchevel.
+The subject is: ${subject}
+Tone guidelines:
+Write in an elegant but simple way. Keep the language easy to read and natural, not sophisticated or formal. I want to break the codes and dare more even if we are in a luxury environment. Avoid anything that feels pretentious or like we are showing off. The tone should feel close, warm, and direct, as if we are speaking to the audience with audacity to shock — let's break the barrier that way.
+Style guidelines:
+* First sentence must be short and hooky
+* Do not start with "At Beefbar Courchevel..."
+* Maximum 5 sentences per language
+* No hashtags
+* Smooth, natural flow (not too many short broken sentences)
+* Focus on atmosphere, feelings, and simple moments rather than luxury buzzwords
+* Avoid repeating the exact same structure in English and French (adapt naturally)`,
+  };
+
+  const accountInstructions = ACCOUNT_PROMPTS[account] || ACCOUNT_PROMPTS.HDCER;
+
+  const prompt = `${accountInstructions}
+
+ADDITIONAL RULES (apply to all):
 - BANNED WORDS AND PHRASES: luxury, unique, unforgettable, magical, breathtaking, incredible, experience, world-class, prestigious, exceptional, exclusive, perfect, stunning, amazing, wonderful, paradise, dream, ultimate, unparalleled, exquisite, sunset, golden hour, sunrise, twilight, dusk, "as the sun sets", "as the day ends", "bathed in light", "flooded with light".
-- DO NOT assume or mention any time of day, lighting condition, or moment of day unless it is explicitly and unambiguously visible in the image. Describe only what is present.
+- DO NOT mention any time of day unless it is unambiguously the main subject.
 - NO emojis. NO exclamation marks.
+${credits ? `- Credits: ${credits}` : ""}
 
-FORMAT (follow exactly):
+FORMAT (follow exactly, with ONE empty line before and after each —):
 
 [English caption]
 
 —
 
-[French translation]
+[French caption]
 
 —
-${credits ? `\n${credits}\n\n—\n` : ""}
-${mention}
+${credits ? `\n${credits}\n\n—\n` : ""}${mention}
 
 ${finalTags.join(" ")}
 
-Output ONLY the caption text.`;
+Output ONLY the caption text. No labels, no brackets, no explanation.`;
 
   try {
     const res  = await fetch("/api/generate", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ prompt }) });
@@ -869,6 +923,7 @@ function ExportButton({ year, month, posts }) {
 }
 
 function CalendarMonth({ year, month, posts, onDayClick, selectedDay, onDeletePost, onDropPost }) {
+  const isMobile = useIsMobile();
   const { accounts } = useContext(AccountsContext);
   const daysInMonth=getDaysInMonth(year,month); const firstDay=getFirstDayOfMonth(year,month);
   const cells=[]; for(let i=0;i<firstDay;i++)cells.push(null); for(let d=1;d<=daysInMonth;d++)cells.push(d); while(cells.length%7!==0)cells.push(null);
@@ -889,7 +944,7 @@ function CalendarMonth({ year, month, posts, onDayClick, selectedDay, onDeletePo
               onDragOver={e=>{if(!dateKey)return;e.preventDefault();setDragOver(dateKey);}}
               onDragLeave={()=>setDragOver(null)}
               onDrop={e=>{e.preventDefault();setDragOver(null);if(!dateKey)return;try{const data=JSON.parse(e.dataTransfer.getData("text/plain"));if(data.fromDateKey!==dateKey)onDropPost(data.fromDateKey,data.fromIndex,dateKey);}catch{}}}
-              style={{ minHeight:90,padding:"6px 6px 4px",borderRight:(i+1)%7!==0?`1px solid ${C.border}`:"none",borderBottom:`1px solid ${C.border}`,cursor:day?"pointer":"default",background:isDrag?`${C.blue}08`:isSel?`${C.blue}06`:isWe&&day?C.surfaceSecondary:day?C.surface:C.surfaceSecondary,transition:"background .12s",position:"relative",outline:isDrag?`2px dashed ${C.blue}`:"none" }}>
+              style={{ minHeight:isMobile?60:90,padding:isMobile?"3px 3px":"6px 6px 4px",borderRight:(i+1)%7!==0?`1px solid ${C.border}`:"none",borderBottom:`1px solid ${C.border}`,cursor:day?"pointer":"default",background:isDrag?`${C.blue}08`:isSel?`${C.blue}06`:isWe&&day?C.surfaceSecondary:day?C.surface:C.surfaceSecondary,transition:"background .12s",position:"relative",outline:isDrag?`2px dashed ${C.blue}`:"none" }}>
               {day&&(<>
                 <div style={{ fontSize:13,fontWeight:isToday?700:isSel?600:400,color:isToday?"#fff":isSel?C.blue:isWe?C.textSecondary:C.text,fontFamily:F,marginBottom:4,width:22,height:22,borderRadius:"50%",background:isToday?C.blue:"transparent",display:"flex",alignItems:"center",justifyContent:"center" }}>{day}</div>
                 <div style={{ display:"flex",flexDirection:"column",gap:3 }}>
@@ -1041,7 +1096,8 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
   );
 }
 
-function DayView({ year, month, day, dateKey, dayName, posts, setPosts }) {
+function DayView({ year, month, day, dateKey, dayName, posts, setPosts, onClose }) {
+  const isMobile = useIsMobile();
   const { accounts, voices, hashtagBank, mandatoryHashtags, mentions } = useContext(AccountsContext);
   const [generatingKey,setGeneratingKey]=useState(null);
   const handleGen=async(index)=>{
@@ -1056,6 +1112,34 @@ function DayView({ year, month, day, dateKey, dayName, posts, setPosts }) {
   const deletePost=(index)=>setPosts(prev=>{const u={...prev};const dp=[...(u[dateKey]||[])];dp.splice(index,1);if(dp.length===0)delete u[dateKey];else u[dateKey]=dp;return u;});
   const dupPost=(index,targetDate,targetAccount)=>{const post=posts[dateKey]?.[index];if(!post)return;setPosts(prev=>{const u={...prev};const dp=[...(u[targetDate]||[])];dp.push({...post,account:targetAccount,status:"Brouillon"});u[targetDate]=dp;return u;});};
   const dayPosts=posts[dateKey]||[];
+
+  if (isMobile) return (
+    <div style={{ position:"fixed",inset:0,zIndex:500,display:"flex",flexDirection:"column",justifyContent:"flex-end" }}>
+      <div onClick={onClose} style={{ flex:1,background:"rgba(0,0,0,0.3)" }}/>
+      <div style={{ background:C.surface,borderRadius:"20px 20px 0 0",maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 -4px 30px rgba(0,0,0,0.15)" }}>
+        {/* Handle */}
+        <div style={{ display:"flex",justifyContent:"center",padding:"10px 0 0" }}>
+          <div style={{ width:36,height:4,borderRadius:2,background:C.border }}/>
+        </div>
+        {/* Header */}
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px 12px" }}>
+          <h3 style={{ fontFamily:F,fontSize:15,fontWeight:700,color:C.text,margin:0 }}>{dayName} {day} {MONTHS_FR[month]}</h3>
+          <button onClick={addPost} style={{ padding:"8px 16px",borderRadius:10,border:"none",background:C.blue,color:"#fff",cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:600 }}>+ Ajouter</button>
+        </div>
+        {/* Scrollable content */}
+        <div style={{ overflowY:"auto",flex:1,padding:"0 12px 32px" }}>
+          {dayPosts.length===0&&<div style={{ padding:30,textAlign:"center",color:C.textTertiary,fontSize:14,fontFamily:F }}>Aucun post — tapez "+ Ajouter"</div>}
+          {dayPosts.map((post,idx)=>(
+            <PostEditor key={idx} post={post} dateKey={dateKey} index={idx} generating={generatingKey===idx}
+              onUpdate={(field,val)=>{updatePost(idx,field,val);if(field==="account"&&posts[dateKey]?.[idx]?.subject&&val)setTimeout(()=>handleGen(idx),300);}}
+              onDelete={()=>deletePost(idx)} onGenerate={()=>handleGen(idx)}
+              onDuplicate={(targetDate,targetAccount)=>dupPost(idx,targetDate,targetAccount)}/>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   return(
     <div style={{ background:C.surface,borderRadius:16,border:`1px solid ${C.border}`,padding:20,marginTop:14,boxShadow:"0 2px 12px rgba(0,0,0,0.06)" }}>
       <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16 }}>
@@ -1617,6 +1701,7 @@ function Library({ library, setLibrary, posts, setPosts, year, month, accountSet
 // ══════════════════════════════════════════════════════════════════════════════
 // ── Publication ───────────────────────────────────────────────────────────────
 function Publication({ posts, setPosts, config }) {
+  const isMobile = useIsMobile();
   const accounts = config?.accounts || [];
   const [filterAcc, setFilterAcc] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -1773,14 +1858,14 @@ function Publication({ posts, setPosts, config }) {
               </div>
 
               {/* Content */}
-              <div style={{ display:"flex",gap:0 }}>
+              <div style={{ display:"flex",gap:0,flexDirection:isMobile?"column":"row" }}>
                 {/* Image */}
-                <div style={{ width:160,flexShrink:0,background:C.surfaceSecondary,borderRight:`1px solid ${C.border}`,position:"relative",cursor:p.thumbSrc?"pointer":"default" }}
+                <div style={{ width:isMobile?"100%":160,height:isMobile?200:160,flexShrink:0,background:C.surfaceSecondary,borderRight:isMobile?"none":`1px solid ${C.border}`,borderBottom:isMobile?`1px solid ${C.border}`:"none",position:"relative",cursor:p.thumbSrc?"pointer":"default" }}
                   onClick={()=>p.thumbSrc&&setLightbox(p)}>
                   {p.thumbSrc ? (
-                    <img src={p.thumbSrc} style={{ width:160,height:160,objectFit:"cover",display:"block" }}/>
+                    <img src={p.thumbSrc} style={{ width:"100%",height:isMobile?200:160,objectFit:"cover",display:"block" }}/>
                   ) : (
-                    <div style={{ width:160,height:160,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center" }}>
+                    <div style={{ width:"100%",height:isMobile?200:160,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center" }}>
                       <div style={{ fontSize:28 }}>📷</div>
                       <div style={{ fontSize:10,color:C.textTertiary,fontFamily:F,marginTop:4 }}>Pas d'image</div>
                     </div>
@@ -2113,53 +2198,35 @@ export default function App() {
   const clearPlanning=()=>{const np={...posts};Object.keys(np).forEach(k=>{if(k.startsWith(monthPrefix))delete np[k];});setPosts(np);};
   const [showSettings,setShowSettings]=useState(false);
 
+  const isMobile = useIsMobile();
+
   const tabs=[
-    {id:"calendar",label:"Calendrier"},{id:"preview",label:"Preview"},{id:"recap",label:"Récap"},
-    {id:"archive",label:"Archive"},{id:"library",label:"Librairie"},{id:"publication",label:"Publication"},{id:"guide",label:"Guide"},
+    {id:"calendar", label:"Calendrier", icon:"📅"},
+    {id:"library",  label:"Librairie",  icon:"📁"},
+    {id:"publication",label:"Publication",icon:"📤"},
+    {id:"recap",    label:"Récap",      icon:"📊"},
+    {id:"more",     label:"Plus",       icon:"⋯"},
   ];
+  const moreTabs=[
+    {id:"preview",  label:"Preview"},
+    {id:"archive",  label:"Archive"},
+    {id:"guide",    label:"Guide"},
+    {id:"settings", label:"Paramètres"},
+  ];
+  const [showMore, setShowMore] = useState(false);
 
-  return(
-    <AccountsContext.Provider value={config}>
-    <LibraryContext.Provider value={{ library,setLibrary }}>
+  // Mobile bottom nav tab click
+  const handleTabClick = (id) => {
+    if (id === "more") { setShowMore(s => !s); return; }
+    setView(id); setShowMore(false);
+  };
 
-    {/* ── Auth guards ── */}
-    {!authChecked && (
-      <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <div style={{ fontSize:13, color:C.textSecondary, fontFamily:F }}>Chargement…</div>
-      </div>
-    )}
-    {authChecked && !user && auth && <LoginPage />}
-    {authChecked && (user || !auth) && (
-
-    <div style={{ fontFamily:F,background:C.bg,minHeight:"100vh",padding:"28px 20px" }}>
-      <div style={{ textAlign:"center",marginBottom:28, position:"relative" }}>
-        {/* ⚙️ Settings icon top-left */}
-        <button onClick={()=>setShowSettings(true)}
-          title="Paramètres"
-          style={{ position:"absolute",left:0,top:0,width:36,height:36,borderRadius:"50%",border:`1px solid ${C.border}`,background:C.surface,cursor:"pointer",fontSize:17,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.08)",transition:"all .15s" }}>
-          ⚙️
-        </button>
-
-        <h1 style={{ fontSize:32,fontWeight:700,color:C.text,margin:0,letterSpacing:-0.5 }}>Calendrier Éditorial</h1>
-        <div style={{ fontSize:12,color:C.textTertiary,marginTop:5,letterSpacing:1.5,fontWeight:500 }}>
-          {config.accounts.map(a=>a.id).join(" · ")}
-        </div>
-        {user && (
-          <div style={{ position:"absolute", right:0, top:0, display:"flex", alignItems:"center", gap:10 }}>
-            <span style={{ fontSize:12, color:C.textSecondary, fontFamily:F }}>{user.email}</span>
-            <button onClick={handleLogout} style={{ padding:"5px 12px", borderRadius:8, border:`1px solid ${C.border}`, background:C.surface, color:C.textSecondary, cursor:"pointer", fontSize:12, fontFamily:F, fontWeight:500, transition:"all .15s" }}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor=C.red;e.currentTarget.style.color=C.red;}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.textSecondary;}}>
-              Déconnexion
-            </button>
-          </div>
-        )}
-      </div>
-
+  const mainContent = (
+    <>
       {/* Settings modal */}
       {showSettings&&(
-        <div onClick={()=>setShowSettings(false)} style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9000,display:"flex",alignItems:"flex-start",justifyContent:"flex-start",padding:"80px 20px" }}>
-          <div onClick={e=>e.stopPropagation()} style={{ background:C.surface,borderRadius:16,boxShadow:"0 8px 40px rgba(0,0,0,0.18)",width:"min(580px,95vw)",maxHeight:"82vh",overflowY:"auto" }}>
+        <div onClick={()=>setShowSettings(false)} style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9000,display:"flex",alignItems:"flex-start",justifyContent:"flex-start",padding:isMobile?"60px 12px":"80px 20px" }}>
+          <div onClick={e=>e.stopPropagation()} style={{ background:C.surface,borderRadius:16,boxShadow:"0 8px 40px rgba(0,0,0,0.18)",width:isMobile?"100%":"min(580px,95vw)",maxHeight:"82vh",overflowY:"auto" }}>
             <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px",borderBottom:`1px solid ${C.border}` }}>
               <span style={{ fontSize:16,fontWeight:700,color:C.text,fontFamily:F }}>⚙️ Paramètres</span>
               <button onClick={()=>setShowSettings(false)} style={{ background:C.surfaceSecondary,border:"none",width:28,height:28,borderRadius:"50%",cursor:"pointer",fontSize:16,color:C.textSecondary,display:"flex",alignItems:"center",justifyContent:"center" }}>×</button>
@@ -2169,18 +2236,24 @@ export default function App() {
         </div>
       )}
 
-      <div style={{ display:"flex",justifyContent:"center",marginBottom:24 }}>
-        <div style={{ display:"inline-flex",background:"rgba(118,118,128,0.12)",borderRadius:12,padding:3,gap:2,flexWrap:"wrap" }}>
-          {tabs.map(t=>(
-            <button key={t.id} onClick={()=>setView(t.id)} style={{ padding:"7px 18px",borderRadius:10,border:"none",background:view===t.id?C.surface:"transparent",color:view===t.id?C.text:C.textSecondary,cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:view===t.id?600:400,transition:"all .18s",boxShadow:view===t.id?"0 1px 4px rgba(0,0,0,0.1)":"none" }}>{t.label}</button>
-          ))}
+      {/* "Plus" dropdown on mobile */}
+      {showMore && isMobile && (
+        <div onClick={()=>setShowMore(false)} style={{ position:"fixed",inset:0,zIndex:8000 }}>
+          <div onClick={e=>e.stopPropagation()} style={{ position:"absolute",bottom:70,right:12,background:C.surface,borderRadius:14,boxShadow:"0 4px 24px rgba(0,0,0,0.15)",padding:8,minWidth:160,border:`1px solid ${C.border}` }}>
+            {moreTabs.map(t=>(
+              <button key={t.id} onClick={()=>{setView(t.id);setShowMore(false);}}
+                style={{ display:"block",width:"100%",padding:"11px 16px",border:"none",background:view===t.id?`${C.blue}12`:"transparent",color:view===t.id?C.blue:C.text,cursor:"pointer",fontSize:14,fontFamily:F,fontWeight:view===t.id?600:400,borderRadius:8,textAlign:"left" }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {(view==="calendar"||view==="recap")&&(
-        <div style={{ display:"flex",alignItems:"center",gap:16,justifyContent:"center",marginBottom:20 }}>
+        <div style={{ display:"flex",alignItems:"center",gap:16,justifyContent:"center",marginBottom:16 }}>
           <button onClick={prevMonth} style={navBtn}>‹</button>
-          <h2 style={{ fontFamily:F,fontSize:22,fontWeight:700,color:C.text,letterSpacing:-0.3,margin:0,minWidth:220,textAlign:"center" }}>{MONTHS_FR[month]} {year}</h2>
+          <h2 style={{ fontFamily:F,fontSize:isMobile?18:22,fontWeight:700,color:C.text,letterSpacing:-0.3,margin:0,minWidth:isMobile?160:220,textAlign:"center" }}>{MONTHS_FR[month]} {year}</h2>
           <button onClick={nextMonth} style={navBtn}>›</button>
         </div>
       )}
@@ -2195,7 +2268,7 @@ export default function App() {
           const dk=fmtDate(year,month,selectedDay);
           const dw=new Date(year,month,selectedDay).getDay();
           const mb=dw===0?6:dw-1;
-          return <DayView year={year} month={month} day={selectedDay} dateKey={dk} dayName={DAYS_FULL[mb]} posts={posts} setPosts={setPosts}/>;
+          return <DayView year={year} month={month} day={selectedDay} dateKey={dk} dayName={DAYS_FULL[mb]} posts={posts} setPosts={setPosts} onClose={()=>setSelectedDay(null)}/>;
         })()}
       </>)}
 
@@ -2211,6 +2284,103 @@ export default function App() {
       {view==="publication"&&<Publication posts={posts} setPosts={setPosts} config={config}/>}
       {view==="guide"&&<Guide/>}
       {view==="settings"&&<Settings config={config} setConfig={setConfig}/>}
+    </>
+  );
+
+  // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
+  if (isMobile) return (
+    <AccountsContext.Provider value={config}>
+    <LibraryContext.Provider value={{ library,setLibrary }}>
+    {!authChecked&&<div style={{ minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center" }}><div style={{ fontSize:13,color:C.textSecondary,fontFamily:F }}>Chargement…</div></div>}
+    {authChecked&&!user&&auth&&<LoginPage/>}
+    {authChecked&&(user||!auth)&&(
+      <div style={{ fontFamily:F,background:C.bg,minHeight:"100vh",paddingBottom:70 }}>
+        {/* Mobile header */}
+        <div style={{ position:"sticky",top:0,zIndex:100,background:C.elevated,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:`1px solid ${C.border}`,padding:"12px 16px 10px",display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+          <button onClick={()=>setShowSettings(true)} style={{ width:34,height:34,borderRadius:"50%",border:`1px solid ${C.border}`,background:C.surfaceSecondary,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center" }}>⚙️</button>
+          <div style={{ textAlign:"center" }}>
+            <div style={{ fontSize:16,fontWeight:700,color:C.text,fontFamily:F,letterSpacing:-0.3 }}>Calendrier Éditorial</div>
+            <div style={{ fontSize:10,color:C.textTertiary,fontFamily:F,letterSpacing:1 }}>{config.accounts.map(a=>a.id).join(" · ")}</div>
+          </div>
+          {user
+            ? <button onClick={handleLogout} style={{ width:34,height:34,borderRadius:"50%",border:`1px solid ${C.border}`,background:C.surfaceSecondary,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",color:C.textSecondary }}>↩</button>
+            : <div style={{ width:34 }}/>
+          }
+        </div>
+
+        {/* Mobile content */}
+        <div style={{ padding:"16px 12px" }}>
+          {mainContent}
+        </div>
+
+        {/* Mobile bottom nav */}
+        <div style={{ position:"fixed",bottom:0,left:0,right:0,zIndex:200,background:C.elevated,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:`1px solid ${C.border}`,display:"flex",paddingBottom:"env(safe-area-inset-bottom,0px)" }}>
+          {tabs.map(t=>{
+            const isActive = t.id==="more"
+              ? (showMore || moreTabs.some(mt=>mt.id===view))
+              : view===t.id;
+            return(
+              <button key={t.id} onClick={()=>handleTabClick(t.id)}
+                style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,padding:"8px 4px 10px",border:"none",background:"transparent",cursor:"pointer",color:isActive?C.blue:C.textTertiary,fontFamily:F,transition:"color .15s" }}>
+                <span style={{ fontSize:20,lineHeight:1 }}>{t.icon}</span>
+                <span style={{ fontSize:9,fontWeight:isActive?600:400,letterSpacing:0.2 }}>{t.label}</span>
+                {isActive&&<div style={{ width:4,height:4,borderRadius:"50%",background:C.blue,position:"absolute",bottom:6 }}/>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    )}
+    </LibraryContext.Provider>
+    </AccountsContext.Provider>
+  );
+
+  // ── DESKTOP LAYOUT ────────────────────────────────────────────────────────
+  return(
+    <AccountsContext.Provider value={config}>
+    <LibraryContext.Provider value={{ library,setLibrary }}>
+
+    {!authChecked && (
+      <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <div style={{ fontSize:13, color:C.textSecondary, fontFamily:F }}>Chargement…</div>
+      </div>
+    )}
+    {authChecked && !user && auth && <LoginPage />}
+    {authChecked && (user || !auth) && (
+
+    <div style={{ fontFamily:F,background:C.bg,minHeight:"100vh",padding:"28px 20px" }}>
+      <div style={{ textAlign:"center",marginBottom:28, position:"relative" }}>
+        <button onClick={()=>setShowSettings(true)} title="Paramètres"
+          style={{ position:"absolute",left:0,top:0,width:36,height:36,borderRadius:"50%",border:`1px solid ${C.border}`,background:C.surface,cursor:"pointer",fontSize:17,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.08)" }}>
+          ⚙️
+        </button>
+        <h1 style={{ fontSize:32,fontWeight:700,color:C.text,margin:0,letterSpacing:-0.5 }}>Calendrier Éditorial</h1>
+        <div style={{ fontSize:12,color:C.textTertiary,marginTop:5,letterSpacing:1.5,fontWeight:500 }}>{config.accounts.map(a=>a.id).join(" · ")}</div>
+        {user && (
+          <div style={{ position:"absolute", right:0, top:0, display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ fontSize:12, color:C.textSecondary, fontFamily:F }}>{user.email}</span>
+            <button onClick={handleLogout} style={{ padding:"5px 12px", borderRadius:8, border:`1px solid ${C.border}`, background:C.surface, color:C.textSecondary, cursor:"pointer", fontSize:12, fontFamily:F, fontWeight:500 }}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor=C.red;e.currentTarget.style.color=C.red;}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.textSecondary;}}>
+              Déconnexion
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display:"flex",justifyContent:"center",marginBottom:24 }}>
+        <div style={{ display:"inline-flex",background:"rgba(118,118,128,0.12)",borderRadius:12,padding:3,gap:2,flexWrap:"wrap" }}>
+          {[...tabs.filter(t=>t.id!=="more"),...moreTabs].map(t=>(
+            <button key={t.id} onClick={()=>setView(t.id)}
+              style={{ padding:"7px 18px",borderRadius:10,border:"none",background:view===t.id?C.surface:"transparent",color:view===t.id?C.text:C.textSecondary,cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:view===t.id?600:400,transition:"all .18s",boxShadow:view===t.id?"0 1px 4px rgba(0,0,0,0.1)":"none" }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {mainContent}
+
     </div>
     )} {/* end authChecked && user */}
     </LibraryContext.Provider>
