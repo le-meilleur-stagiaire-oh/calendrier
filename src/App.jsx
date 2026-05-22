@@ -1107,31 +1107,126 @@ function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDu
         <input value={post.credits||""} onChange={e=>onUpdate("credits",e.target.value)} placeholder="Ex: Photo @nom_photographe" style={inputStyle}/>
       </div>
       <div style={{ marginBottom:10 }}>
-        <label style={labelStyle}>Médias</label>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6 }}>
+          <label style={labelStyle}>Médias {(post.mediaItems||[]).length>0&&`(${(post.mediaItems||[]).length})`}</label>
+          {(post.mediaItems||[]).length>1&&<span style={{ fontSize:10,color:C.textTertiary,fontFamily:F }}>Glisser pour réordonner</span>}
+        </div>
+
+        {/* Carrousel preview strip — shown when 2+ media */}
+        {(post.mediaItems||[]).length>1&&(()=>{
+          const [previewIdx,setPreviewIdx]=useState(0);
+          const items=post.mediaItems||[];
+          const cur=items[previewIdx]||{};
+          const src=cur.fileData||cur.url||"";
+          const isVid=cur.fileType?.startsWith("video/")||src.match(/\.(mp4|mov|webm)/i)||src.startsWith("data:video");
+          return(
+            <div style={{ marginBottom:10,borderRadius:12,overflow:"hidden",border:`1px solid ${C.border}`,background:"#000",position:"relative" }}>
+              {/* Main preview */}
+              <div style={{ aspectRatio:"1",maxHeight:280,display:"flex",alignItems:"center",justifyContent:"center",background:"#000" }}>
+                {src?(
+                  isVid
+                    ?<video key={src} src={src} controls autoPlay muted loop playsInline style={{ maxWidth:"100%",maxHeight:280,objectFit:"contain",display:"block" }}/>
+                    :<img src={src} style={{ maxWidth:"100%",maxHeight:280,objectFit:"contain",display:"block" }}/>
+                ):(
+                  <div style={{ color:"#666",fontSize:13,fontFamily:F,textAlign:"center",padding:20 }}>
+                    <div style={{ fontSize:28,marginBottom:6 }}>📷</div>
+                    Pas de média
+                  </div>
+                )}
+              </div>
+              {/* Nav arrows */}
+              {previewIdx>0&&<button onClick={()=>setPreviewIdx(i=>i-1)} style={{ position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",width:32,height:32,borderRadius:"50%",border:"none",background:"rgba(255,255,255,0.85)",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:600 }}>‹</button>}
+              {previewIdx<items.length-1&&<button onClick={()=>setPreviewIdx(i=>i+1)} style={{ position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",width:32,height:32,borderRadius:"50%",border:"none",background:"rgba(255,255,255,0.85)",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:600 }}>›</button>}
+              {/* Counter */}
+              <div style={{ position:"absolute",top:8,right:10,background:"rgba(0,0,0,0.55)",color:"#fff",fontSize:10,fontFamily:F,padding:"2px 7px",borderRadius:10,fontWeight:600 }}>{previewIdx+1}/{items.length}</div>
+              {/* Dots */}
+              <div style={{ position:"absolute",bottom:8,left:0,right:0,display:"flex",justifyContent:"center",gap:4 }}>
+                {items.map((_,idx)=><div key={idx} onClick={()=>setPreviewIdx(idx)} style={{ width:idx===previewIdx?16:6,height:6,borderRadius:3,background:idx===previewIdx?"#fff":"rgba(255,255,255,0.4)",cursor:"pointer",transition:"all .2s" }}/>)}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Thumbnails strip — draggable to reorder */}
+        {(post.mediaItems||[]).length>1&&(
+          <div style={{ display:"flex",gap:6,marginBottom:8,overflowX:"auto",paddingBottom:4 }}>
+            {(post.mediaItems||[]).map((item,i)=>{
+              const src=item.fileData||item.url||"";
+              const isVid=item.fileType?.startsWith("video/")||src.match(/\.(mp4|mov)/i)||src.startsWith("data:video");
+              return(
+                <div key={i} draggable
+                  onDragStart={e=>e.dataTransfer.setData("text/plain",String(i))}
+                  onDragOver={e=>e.preventDefault()}
+                  onDrop={e=>{
+                    e.preventDefault();
+                    const from=parseInt(e.dataTransfer.getData("text/plain"));
+                    if(from===i)return;
+                    const arr=[...(post.mediaItems||[])];
+                    const [moved]=arr.splice(from,1);
+                    arr.splice(i,0,moved);
+                    onUpdate("mediaItems",arr);
+                  }}
+                  style={{ width:52,height:52,borderRadius:8,overflow:"hidden",flexShrink:0,cursor:"grab",border:`2px solid ${C.border}`,position:"relative",transition:"border-color .15s" }}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor=C.blue}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                  {isVid?(
+                    <div style={{ width:"100%",height:"100%",background:"#1a1a1a",display:"flex",alignItems:"center",justifyContent:"center" }}>
+                      <span style={{ fontSize:18 }}>▶</span>
+                    </div>
+                  ):src?(
+                    <img src={src} style={{ width:"100%",height:"100%",objectFit:"cover",display:"block" }}/>
+                  ):(
+                    <div style={{ width:"100%",height:"100%",background:C.surfaceSecondary,display:"flex",alignItems:"center",justifyContent:"center" }}><span style={{ fontSize:16 }}>📷</span></div>
+                  )}
+                  {/* Remove btn */}
+                  <button onClick={()=>{const arr=[...(post.mediaItems||[])];arr.splice(i,1);onUpdate("mediaItems",arr);}} style={{ position:"absolute",top:1,right:1,width:16,height:16,borderRadius:"50%",border:"none",background:"rgba(0,0,0,0.6)",color:"#fff",cursor:"pointer",fontSize:9,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1 }}>×</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Individual media items (compact when preview is shown) */}
         <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
           {(post.mediaItems||[]).map((item,i)=>(
             <div key={i} style={{ padding:"8px 10px",background:C.surfaceSecondary,borderRadius:8,border:`1px solid ${C.border}` }}>
               <div style={{ display:"flex",gap:8,alignItems:"center" }}>
-                <input value={item.name||""} onChange={e=>{const items=[...(post.mediaItems||[])];items[i]={...items[i],name:e.target.value};onUpdate("mediaItems",items);}} placeholder="Nom du fichier" style={{ ...inputStyle,flex:1,fontSize:11,padding:"4px 6px" }}/>
+                {/* Index badge */}
+                <div style={{ width:20,height:20,borderRadius:"50%",background:C.border,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+                  <span style={{ fontSize:9,fontWeight:700,color:C.textSecondary,fontFamily:F }}>{i+1}</span>
+                </div>
+                <input value={item.name||""} onChange={e=>{const arr=[...(post.mediaItems||[])];arr[i]={...arr[i],name:e.target.value};onUpdate("mediaItems",arr);}} placeholder="Nom du fichier" style={{ ...inputStyle,flex:1,fontSize:11,padding:"4px 6px" }}/>
                 <label style={{ padding:"3px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.surface,color:C.textSecondary,cursor:"pointer",fontSize:10,fontFamily:F,fontWeight:500,whiteSpace:"nowrap" }}>
                   {item.fileData?"Changer":"Uploader"}
-                  <input type="file" accept="image/*,video/*" style={{ display:"none" }} onChange={e=>{const file=e.target.files?.[0];if(!file)return;const r=new FileReader();r.onload=()=>{const items=[...(post.mediaItems||[])];items[i]={...items[i],fileData:r.result,fileName:file.name,name:items[i].name||file.name};onUpdate("mediaItems",items);};r.readAsDataURL(file);}}/>
+                  <input type="file" accept="image/*,video/*" style={{ display:"none" }} onChange={e=>{
+                    const file=e.target.files?.[0]; if(!file)return;
+                    const r=new FileReader();
+                    r.onload=()=>{const arr=[...(post.mediaItems||[])];arr[i]={...arr[i],fileData:r.result,fileType:file.type,fileName:file.name,name:arr[i].name||file.name};onUpdate("mediaItems",arr);};
+                    r.readAsDataURL(file);
+                  }}/>
                 </label>
-                <span onClick={()=>{const items=[...(post.mediaItems||[])];items.splice(i,1);onUpdate("mediaItems",items);}} style={{ fontSize:14,color:C.textTertiary,cursor:"pointer",padding:"0 4px" }} onMouseEnter={e=>e.target.style.color=C.red} onMouseLeave={e=>e.target.style.color=C.textTertiary}>×</span>
+                <span onClick={()=>{const arr=[...(post.mediaItems||[])];arr.splice(i,1);onUpdate("mediaItems",arr);}} style={{ fontSize:14,color:C.textTertiary,cursor:"pointer",padding:"0 4px" }} onMouseEnter={e=>e.target.style.color=C.red} onMouseLeave={e=>e.target.style.color=C.textTertiary}>×</span>
               </div>
-              {item.fileData&&item.fileData.startsWith("data:image")&&<img src={item.fileData} style={{ marginTop:6,maxWidth:120,maxHeight:80,borderRadius:6,objectFit:"cover",border:`1px solid ${C.border}` }}/>}
-              {item.url&&item.fileType?.startsWith("image/")&&!item.fileData&&<img src={item.url} style={{ marginTop:6,maxWidth:120,maxHeight:80,borderRadius:6,objectFit:"cover",border:`1px solid ${C.border}` }}/>}
-              {item.fileData&&item.fileData.startsWith("data:video")&&<div style={{ marginTop:6,fontSize:10,color:C.textSecondary,fontFamily:F }}>Vidéo : {item.fileName||"uploadée"}</div>}
-              <div style={{ display:"flex",gap:6,alignItems:"center",marginTop:4 }}>
-                <input value={item.driveUrl||""} onChange={e=>{const items=[...(post.mediaItems||[])];items[i]={...items[i],driveUrl:e.target.value};onUpdate("mediaItems",items);}} placeholder="Lien Google Drive (optionnel)" style={{ ...inputStyle,fontSize:10,padding:"3px 6px",flex:1 }}/>
+              {/* Inline preview for single item or when no carrousel strip */}
+              {(post.mediaItems||[]).length===1&&(()=>{
+                const src=item.fileData||item.url||"";
+                const isVid=item.fileType?.startsWith("video/")||src.match(/\.(mp4|mov|webm)/i)||src.startsWith("data:video");
+                if(!src)return null;
+                return isVid
+                  ?<video key={src} src={src} controls muted playsInline style={{ marginTop:8,width:"100%",maxHeight:200,borderRadius:8,display:"block",background:"#000" }}/>
+                  :<img src={src} style={{ marginTop:6,maxWidth:"100%",maxHeight:160,borderRadius:8,objectFit:"cover",border:`1px solid ${C.border}` }}/>;
+              })()}
+              <div style={{ display:"flex",gap:6,alignItems:"center",marginTop:6 }}>
+                <input value={item.driveUrl||""} onChange={e=>{const arr=[...(post.mediaItems||[])];arr[i]={...arr[i],driveUrl:e.target.value};onUpdate("mediaItems",arr);}} placeholder="Lien Google Drive (optionnel)" style={{ ...inputStyle,fontSize:10,padding:"3px 6px",flex:1 }}/>
                 {item.driveUrl&&<a href={item.driveUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize:10,color:C.blue,textDecoration:"none",whiteSpace:"nowrap" }}>Ouvrir</a>}
               </div>
             </div>
           ))}
-          <div style={{ display:"flex",gap:6 }}>
-            <button onClick={()=>{const items=[...(post.mediaItems||[])];items.push({name:"",fileData:null,fileName:"",driveUrl:""});onUpdate("mediaItems",items);}} style={{ flex:1,padding:"7px 12px",borderRadius:8,border:`1px dashed ${C.border}`,background:C.surfaceSecondary,cursor:"pointer",fontSize:11,color:C.textSecondary,fontFamily:F,display:"flex",alignItems:"center",gap:6,justifyContent:"center" }}>+ Uploader un média</button>
-            <button onClick={()=>setShowLibrary(true)} style={{ flex:1,padding:"7px 12px",borderRadius:8,border:`1px dashed ${C.border}`,background:C.surfaceSecondary,cursor:"pointer",fontSize:11,color:C.text,fontFamily:F,display:"flex",alignItems:"center",gap:6,justifyContent:"center",fontWeight:500 }}>📁 Choisir depuis la librairie</button>
-          </div>
+        </div>
+
+        <div style={{ display:"flex",gap:6,marginTop:6 }}>
+          <button onClick={()=>{const arr=[...(post.mediaItems||[])];arr.push({name:"",fileData:null,fileType:"",fileName:"",driveUrl:""});onUpdate("mediaItems",arr);}} style={{ flex:1,padding:"7px 12px",borderRadius:8,border:`1px dashed ${C.border}`,background:C.surfaceSecondary,cursor:"pointer",fontSize:11,color:C.textSecondary,fontFamily:F,display:"flex",alignItems:"center",gap:6,justifyContent:"center" }}>+ Uploader un média</button>
+          <button onClick={()=>setShowLibrary(true)} style={{ flex:1,padding:"7px 12px",borderRadius:8,border:`1px dashed ${C.border}`,background:C.surfaceSecondary,cursor:"pointer",fontSize:11,color:C.text,fontFamily:F,display:"flex",alignItems:"center",gap:6,justifyContent:"center",fontWeight:500 }}>📁 Choisir depuis la librairie</button>
         </div>
       </div>
       {showLibrary&&<LibraryPicker onClose={()=>setShowLibrary(false)} accountHint={post.account||"all"} onSelect={item=>{const items=[...(post.mediaItems||[])];items.push({name:item.name,url:item.url,fileType:item.fileType,fileName:item.name,fileData:null,driveUrl:""});onUpdate("mediaItems",items);}}/>}
@@ -1994,21 +2089,32 @@ function Publication({ posts, setPosts, config }) {
                     )}
                   </div>
 
-                  {/* All images for carrousels */}
-                  {(p.mediaItems||[]).filter(m=>m.url||(m.fileData&&m.fileData.startsWith("data:image"))).length > 1 && (
+                  {/* All media for carrousels with inline video */}
+                  {(p.mediaItems||[]).filter(m=>m.url||(m.fileData&&(m.fileData.startsWith("data:image")||m.fileData.startsWith("data:video")))).length > 1 && (
                     <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginTop:4 }}>
-                      {(p.mediaItems||[]).filter(m=>m.url||(m.fileData&&m.fileData.startsWith("data:image"))).map((m,mi)=>(
-                        <div key={mi} style={{ position:"relative" }}>
-                          <img src={m.fileData||m.url} style={{ width:48,height:48,borderRadius:8,objectFit:"cover",border:`1px solid ${C.border}`,cursor:"pointer" }}
-                            onClick={()=>setLightbox({...p,thumbSrc:m.fileData||m.url,imageUrl:m.url})}/>
-                          {m.url&&(
-                            <button onClick={()=>downloadImage(m.url,`${p.dateKey}_${p.account}_${mi+1}.jpg`)}
-                              style={{ position:"absolute",top:-4,right:-4,width:16,height:16,borderRadius:"50%",border:"none",background:C.blue,color:"#fff",cursor:"pointer",fontSize:9,display:"flex",alignItems:"center",justifyContent:"center" }}>
-                              ⬇
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                      {(p.mediaItems||[]).filter(m=>m.url||(m.fileData&&(m.fileData.startsWith("data:image")||m.fileData.startsWith("data:video")))).map((m,mi)=>{
+                        const src=m.fileData||m.url||"";
+                        const isVid=m.fileType?.startsWith("video/")||src.match(/\.(mp4|mov|webm)/i)||src.startsWith("data:video");
+                        return(
+                          <div key={mi} style={{ position:"relative" }}>
+                            {isVid?(
+                              <div onClick={()=>setLightbox({...p,thumbSrc:null,imageUrl:src,_videoSrc:src})}
+                                style={{ width:48,height:48,borderRadius:8,background:"#1a1a1a",border:`1px solid ${C.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center" }}>
+                                <span style={{ fontSize:18 }}>▶</span>
+                              </div>
+                            ):(
+                              <img src={src} style={{ width:48,height:48,borderRadius:8,objectFit:"cover",border:`1px solid ${C.border}`,cursor:"pointer" }}
+                                onClick={()=>setLightbox({...p,thumbSrc:src,imageUrl:m.url})}/>
+                            )}
+                            {m.url&&(
+                              <button onClick={()=>downloadImage(m.url,`${p.dateKey}_${p.account}_${mi+1}${isVid?".mp4":".jpg"}`)}
+                                style={{ position:"absolute",top:-4,right:-4,width:16,height:16,borderRadius:"50%",border:"none",background:C.blue,color:"#fff",cursor:"pointer",fontSize:9,display:"flex",alignItems:"center",justifyContent:"center" }}>
+                                ⬇
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -2019,28 +2125,37 @@ function Publication({ posts, setPosts, config }) {
       </div>
 
       {/* Lightbox */}
-      {lightbox&&(
-        <div onClick={()=>setLightbox(null)} style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
-          <div onClick={e=>e.stopPropagation()} style={{ position:"relative",maxWidth:"90vw",display:"flex",flexDirection:"column",alignItems:"center",gap:12 }}>
-            <img src={lightbox.thumbSrc} style={{ maxWidth:"85vw",maxHeight:"78vh",objectFit:"contain",borderRadius:10,display:"block" }}/>
-            <div style={{ display:"flex",gap:10 }}>
-              {lightbox.imageUrl&&(
-                <button onClick={()=>downloadImage(lightbox.imageUrl,`${lightbox.dateKey}_${lightbox.account}.jpg`)}
-                  style={{ padding:"8px 18px",borderRadius:10,border:"none",background:C.blue,color:"#fff",cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:600 }}>
-                  ⬇ Télécharger
-                </button>
-              )}
-              {lightbox.imageUrl&&(
-                <a href={lightbox.imageUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ padding:"8px 18px",borderRadius:10,border:`1px solid rgba(255,255,255,0.3)`,background:"transparent",color:"#fff",cursor:"pointer",fontSize:13,fontFamily:F,textDecoration:"none" }}>
-                  Ouvrir ↗
-                </a>
-              )}
+      {lightbox&&(()=>{
+        const videoSrc = lightbox._videoSrc || (lightbox.thumbSrc?.match(/\.(mp4|mov|webm)/i) ? lightbox.thumbSrc : null);
+        const isVideo = !!videoSrc;
+        const dlUrl = lightbox.imageUrl || lightbox._videoSrc;
+        const ext = isVideo ? ".mp4" : ".jpg";
+        return(
+          <div onClick={()=>setLightbox(null)} style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
+            <div onClick={e=>e.stopPropagation()} style={{ position:"relative",maxWidth:"90vw",display:"flex",flexDirection:"column",alignItems:"center",gap:12 }}>
+              {isVideo
+                ?<video src={videoSrc} controls autoPlay muted loop playsInline style={{ maxWidth:"85vw",maxHeight:"78vh",borderRadius:10,display:"block",background:"#000" }}/>
+                :<img src={lightbox.thumbSrc} style={{ maxWidth:"85vw",maxHeight:"78vh",objectFit:"contain",borderRadius:10,display:"block" }}/>
+              }
+              <div style={{ display:"flex",gap:10 }}>
+                {dlUrl&&(
+                  <button onClick={()=>downloadImage(dlUrl,`${lightbox.dateKey}_${lightbox.account}${ext}`)}
+                    style={{ padding:"8px 18px",borderRadius:10,border:"none",background:C.text,color:"#fff",cursor:"pointer",fontSize:13,fontFamily:F,fontWeight:600 }}>
+                    ⬇ Télécharger
+                  </button>
+                )}
+                {dlUrl&&(
+                  <a href={dlUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ padding:"8px 18px",borderRadius:10,border:`1px solid rgba(255,255,255,0.25)`,background:"transparent",color:"#fff",cursor:"pointer",fontSize:13,fontFamily:F,textDecoration:"none" }}>
+                    Ouvrir ↗
+                  </a>
+                )}
+              </div>
+              <button onClick={()=>setLightbox(null)} style={{ position:"absolute",top:-14,right:-14,width:30,height:30,borderRadius:"50%",border:"none",background:"#fff",color:C.text,cursor:"pointer",fontSize:16,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center" }}>×</button>
             </div>
-            <button onClick={()=>setLightbox(null)} style={{ position:"absolute",top:-14,right:-14,width:30,height:30,borderRadius:"50%",border:"none",background:"#fff",color:C.text,cursor:"pointer",fontSize:16,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center" }}>×</button>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
