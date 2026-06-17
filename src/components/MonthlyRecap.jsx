@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import { AccountsContext } from "../lib/defaults.js";
-import { C, F, cardStyle, Badge } from "../lib/tokens.js";
+import { C, F, cardStyle, Badge } from "../lib/tokens.jsx";
 import { MONTHS_FR, fmtDateFR, getWeeksOfMonth } from "../lib/dates.js";
 
 export default function MonthlyRecap({ year, month, posts, openStatus }) {

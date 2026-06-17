@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import { AccountsContext } from "../lib/defaults.js";
-import { C, F } from "../lib/tokens.js";
+import { C, F } from "../lib/tokens.jsx";
 import { POST_TYPES } from "../lib/dates.js";
 
 export default function Stats({ posts }) {

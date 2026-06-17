@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { C, F, FH, selectStyle, cardStyle, btnPrimary } from "../lib/tokens.js";
+import { useState, Fragment } from "react";
+import { C, F, FH, selectStyle, cardStyle, btnPrimary } from "../lib/tokens.jsx";
 import { MONTHS_FR, STATUSES, STATUS_COLORS, getEffectiveStatus } from "../lib/dates.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 
@@ -126,14 +126,14 @@ export default function Publication({ posts, setPosts, config }) {
           const isProgrammeHeader = !isManque && (pi === 0 || sorted[pi - 1]?.effectiveStatus === "Manqué");
 
           return (
-            <>
+            <Fragment key={p.key}>
               {isProgrammeHeader && (
-                <div key={`header-prog-${pi}`} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: manqueCount > 0 ? 12 : 0, marginBottom: 4, padding: "8px 14px", borderRadius: 10, background: `${STATUS_COLORS["Programmé"]}10`, border: `1px solid ${STATUS_COLORS["Programmé"]}30` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: manqueCount > 0 ? 12 : 0, marginBottom: 4, padding: "8px 14px", borderRadius: 10, background: `${STATUS_COLORS["Programmé"]}10`, border: `1px solid ${STATUS_COLORS["Programmé"]}30` }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: STATUS_COLORS["Programmé"], display: "inline-block", flexShrink: 0 }} />
                   <span style={{ fontSize: 12, fontWeight: 700, color: STATUS_COLORS["Programmé"], fontFamily: F }}>Posts programmés</span>
                 </div>
               )}
-              <div key={p.key} style={{ background: C.surface, borderRadius: 16, border: `1px solid ${isManque ? `${STATUS_COLORS["Manqué"]}40` : C.border}`, overflow: "hidden", boxShadow: isManque ? `0 0 0 1px ${STATUS_COLORS["Manqué"]}20` : "0 1px 6px rgba(0,0,0,0.05)" }}>
+              <div style={{ background: C.surface, borderRadius: 16, border: `1px solid ${isManque ? `${STATUS_COLORS["Manqué"]}40` : C.border}`, overflow: "hidden", boxShadow: isManque ? `0 0 0 1px ${STATUS_COLORS["Manqué"]}20` : "0 1px 6px rgba(0,0,0,0.05)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: isManque ? `${STATUS_COLORS["Manqué"]}08` : p.acc ? `${p.acc.color}10` : C.surfaceSecondary, borderBottom: `1px solid ${C.border}`, flexWrap: "wrap" }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: p.acc?.color || C.text, fontFamily: F }}>{p.account}</div>
                   <div style={{ fontSize: 13, color: C.textSecondary, fontFamily: F }}>{dow} {parseInt(d)} {MONTHS_FR[Number(m) - 1]} {y}</div>
@@ -228,7 +228,7 @@ export default function Publication({ posts, setPosts, config }) {
                   </div>
                 </div>
               </div>
-            </>
+            </Fragment>
           );
         })}
       </div>

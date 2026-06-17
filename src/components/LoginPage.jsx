@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { auth, signInWithEmailAndPassword } from "../lib/firebase.js";
-import { C, F, FH, inputStyle, labelStyle } from "../lib/tokens.js";
+import { C, F, FH, inputStyle, labelStyle } from "../lib/tokens.jsx";
 
 export default function LoginPage() {
   const [email, setEmail]       = useState("");

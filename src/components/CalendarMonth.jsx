@@ -1,6 +1,6 @@
 import { useState, useContext } from "react";
 import { AccountsContext } from "../lib/defaults.js";
-import { C, F, cardStyle } from "../lib/tokens.js";
+import { C, F, cardStyle } from "../lib/tokens.jsx";
 import { DAYS_FR, getDaysInMonth, getFirstDayOfMonth, fmtDate, STATUS_COLORS, getEffectiveStatus } from "../lib/dates.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 

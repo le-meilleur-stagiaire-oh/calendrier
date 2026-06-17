@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { db, auth, doc, getDoc, setDoc, collection, getDocs, query, orderBy, onAuthStateChanged, signOut } from "./lib/firebase.js";
 import { AccountsContext, LibraryContext, DEFAULT_ACCOUNTS, DEFAULT_VOICES, DEFAULT_HASHTAG_BANK, DEFAULT_MANDATORY, DEFAULT_BEST_TIMES, DEFAULT_MENTION, DEFAULT_SUBFOLDERS, DEFAULT_SUBJECT_BANK } from "./lib/defaults.js";
-import { C, F, FH, navBtn } from "./lib/tokens.js";
+import { C, F, FH, navBtn } from "./lib/tokens.jsx";
 import { MONTHS_FR, DAYS_FULL, fmtDate, getDaysInMonth, getWeeksOfMonth } from "./lib/dates.js";
 import { useIsMobile } from "./hooks/useIsMobile.js";
 

@@ -1,6 +1,6 @@
 import { useState, useRef, useContext } from "react";
 import { AccountsContext } from "../lib/defaults.js";
-import { C, F, selectStyle, inputStyle, cardStyle, pillBtn, btnPrimary } from "../lib/tokens.js";
+import { C, F, selectStyle, inputStyle, cardStyle, pillBtn, btnPrimary } from "../lib/tokens.jsx";
 import { MONTHS_FR } from "../lib/dates.js";
 import { analyzeImageAndGenerate } from "../lib/ai.js";
 import { db, CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET, collection, addDoc, deleteDoc, doc, setDoc } from "../lib/firebase.js";

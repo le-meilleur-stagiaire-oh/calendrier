@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { C, F, FH, cardStyle } from "../lib/tokens.js";
+import { C, F, FH, cardStyle } from "../lib/tokens.jsx";
 
 export default function Guide() {
   const [open, setOpen] = useState(null);

@@ -1,6 +1,6 @@
 import { useState, useContext } from "react";
 import { AccountsContext } from "../lib/defaults.js";
-import { C, F, btnPrimary } from "../lib/tokens.js";
+import { C, F, btnPrimary } from "../lib/tokens.jsx";
 import { MONTHS_FR, DAYS_FULL } from "../lib/dates.js";
 import { generateCaption } from "../lib/ai.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";

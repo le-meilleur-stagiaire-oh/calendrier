@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import { AccountsContext } from "../lib/defaults.js";
-import { C, F, cardStyle, btnPrimary, btnSecondary } from "../lib/tokens.js";
+import { C, F, cardStyle, btnPrimary, btnSecondary } from "../lib/tokens.jsx";
 import { MONTHS_FR } from "../lib/dates.js";
 
 export default function OpenClosedPanel({ accountSettings, setAccountSettings, month, onGenerate, onClear }) {

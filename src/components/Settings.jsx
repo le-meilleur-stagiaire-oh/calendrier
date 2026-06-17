@@ -1,6 +1,6 @@
 import { useState, useContext } from "react";
 import { AccountsContext } from "../lib/defaults.js";
-import { C, F, selectStyle, inputStyle, labelStyle, cardStyle, btnPrimary, btnSecondary } from "../lib/tokens.js";
+import { C, F, selectStyle, inputStyle, labelStyle, cardStyle, btnPrimary, btnSecondary } from "../lib/tokens.jsx";
 
 export default function Settings({ config, setConfig }) {
   const [tab, setTab]           = useState("accounts");

@@ -1,9 +1,39 @@
 import { useState, useContext } from "react";
 import { AccountsContext } from "../lib/defaults.js";
-import { C, F, selectStyle, inputStyle, labelStyle } from "../lib/tokens.js";
+import { C, F, selectStyle, inputStyle, labelStyle } from "../lib/tokens.jsx";
 import { POST_TYPES, STATUSES, STATUS_COLORS } from "../lib/dates.js";
 import { analyzeImageAndGenerate } from "../lib/ai.js";
 import LibraryPicker from "./LibraryPicker.jsx";
+
+function CarouselPreview({ items }) {
+  const [previewIdx, setPreviewIdx] = useState(0);
+  const cur = items[previewIdx] || {};
+  const src = cur.fileData || cur.url || "";
+  const isVid = cur.fileType?.startsWith("video/") || src.match(/\.(mp4|mov|webm)/i) || src.startsWith("data:video");
+  return (
+    <div style={{ marginBottom:10,borderRadius:12,overflow:"hidden",border:`1px solid ${C.border}`,background:"#000",position:"relative" }}>
+      <div style={{ aspectRatio:"1",maxHeight:280,display:"flex",alignItems:"center",justifyContent:"center",background:"#000" }}>
+        {src ? (
+          isVid
+            ? <video key={src} src={src} controls autoPlay muted loop playsInline style={{ maxWidth:"100%",maxHeight:280,objectFit:"contain",display:"block" }}/>
+            : <img src={src} style={{ maxWidth:"100%",maxHeight:280,objectFit:"contain",display:"block" }}/>
+        ) : (
+          <div style={{ color:"#666",fontSize:13,fontFamily:F,textAlign:"center",padding:20 }}>
+            <div style={{ fontSize:28,marginBottom:6 }}>📷</div>Pas de média
+          </div>
+        )}
+      </div>
+      {previewIdx > 0 && <button onClick={()=>setPreviewIdx(i=>i-1)} style={{ position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",width:32,height:32,borderRadius:"50%",border:"none",background:"rgba(255,255,255,0.85)",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:600 }}>‹</button>}
+      {previewIdx < items.length-1 && <button onClick={()=>setPreviewIdx(i=>i+1)} style={{ position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",width:32,height:32,borderRadius:"50%",border:"none",background:"rgba(255,255,255,0.85)",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:600 }}>›</button>}
+      <div style={{ position:"absolute",top:8,right:10,background:"rgba(0,0,0,0.55)",color:"#fff",fontSize:10,fontFamily:F,padding:"2px 7px",borderRadius:10,fontWeight:600 }}>{previewIdx+1}/{items.length}</div>
+      <div style={{ position:"absolute",bottom:8,left:0,right:0,display:"flex",justifyContent:"center",gap:4 }}>
+        {items.map((_,idx)=>(
+          <div key={idx} onClick={()=>setPreviewIdx(idx)} style={{ width:idx===previewIdx?16:6,height:6,borderRadius:3,background:idx===previewIdx?"#fff":"rgba(255,255,255,0.4)",cursor:"pointer",transition:"all .2s" }}/>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function PostEditor({ post, dateKey, index, onUpdate, onDelete, onGenerate, onDuplicate, generating }) {
   const { accounts, voices, hashtagBank, mandatoryHashtags, bestTimes, mentions, subjectBank } = useContext(AccountsContext);
@@ -72,34 +102,7 @@ export default function PostEditor({ post, dateKey, index, onUpdate, onDelete, o
           {(post.mediaItems||[]).length>1&&<span style={{ fontSize:10,color:C.textTertiary,fontFamily:F }}>Glisser pour réordonner</span>}
         </div>
 
-        {(post.mediaItems||[]).length>1&&(()=>{
-          const [previewIdx, setPreviewIdx] = useState(0);
-          const items = post.mediaItems||[];
-          const cur = items[previewIdx]||{};
-          const src = cur.fileData||cur.url||"";
-          const isVid = cur.fileType?.startsWith("video/")||src.match(/\.(mp4|mov|webm)/i)||src.startsWith("data:video");
-          return (
-            <div style={{ marginBottom:10,borderRadius:12,overflow:"hidden",border:`1px solid ${C.border}`,background:"#000",position:"relative" }}>
-              <div style={{ aspectRatio:"1",maxHeight:280,display:"flex",alignItems:"center",justifyContent:"center",background:"#000" }}>
-                {src?(
-                  isVid
-                    ?<video key={src} src={src} controls autoPlay muted loop playsInline style={{ maxWidth:"100%",maxHeight:280,objectFit:"contain",display:"block" }}/>
-                    :<img src={src} style={{ maxWidth:"100%",maxHeight:280,objectFit:"contain",display:"block" }}/>
-                ):(
-                  <div style={{ color:"#666",fontSize:13,fontFamily:F,textAlign:"center",padding:20 }}>
-                    <div style={{ fontSize:28,marginBottom:6 }}>📷</div>Pas de média
-                  </div>
-                )}
-              </div>
-              {previewIdx>0&&<button onClick={()=>setPreviewIdx(i=>i-1)} style={{ position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",width:32,height:32,borderRadius:"50%",border:"none",background:"rgba(255,255,255,0.85)",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:600 }}>‹</button>}
-              {previewIdx<items.length-1&&<button onClick={()=>setPreviewIdx(i=>i+1)} style={{ position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",width:32,height:32,borderRadius:"50%",border:"none",background:"rgba(255,255,255,0.85)",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:600 }}>›</button>}
-              <div style={{ position:"absolute",top:8,right:10,background:"rgba(0,0,0,0.55)",color:"#fff",fontSize:10,fontFamily:F,padding:"2px 7px",borderRadius:10,fontWeight:600 }}>{previewIdx+1}/{items.length}</div>
-              <div style={{ position:"absolute",bottom:8,left:0,right:0,display:"flex",justifyContent:"center",gap:4 }}>
-                {items.map((_,idx)=><div key={idx} onClick={()=>setPreviewIdx(idx)} style={{ width:idx===previewIdx?16:6,height:6,borderRadius:3,background:idx===previewIdx?"#fff":"rgba(255,255,255,0.4)",cursor:"pointer",transition:"all .2s" }}/>)}
-              </div>
-            </div>
-          );
-        })()}
+        {(post.mediaItems||[]).length>1&&<CarouselPreview items={post.mediaItems}/>}
 
         {(post.mediaItems||[]).length>1&&(
           <div style={{ display:"flex",gap:6,marginBottom:8,overflowX:"auto",paddingBottom:4 }}>

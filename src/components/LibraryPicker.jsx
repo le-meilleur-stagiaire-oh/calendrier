@@ -1,6 +1,6 @@
 import { useState, useContext } from "react";
 import { LibraryContext, AccountsContext } from "../lib/defaults.js";
-import { C, F, inputStyle, pillBtn } from "../lib/tokens.js";
+import { C, F, inputStyle, pillBtn } from "../lib/tokens.jsx";
 
 export default function LibraryPicker({ onSelect, onClose, accountHint, multiSelect = false }) {
   const { library } = useContext(LibraryContext);
