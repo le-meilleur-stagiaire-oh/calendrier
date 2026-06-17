@@ -1,149 +1,100 @@
-# Calendrier Éditorial — OH
+# Calendrier Éditorial — Winking 247
 
-Outil de gestion de contenu Instagram pour les établissements Oetker Collection.
-
----
-
-## Établissements
-
-| Code | Établissement |
-|------|---------------|
-| APG | L'Apogée Courchevel |
-| CSM | Château Saint-Martin & Spa |
-| HDCER | Hôtel du Cap-Eden-Roc |
-| BB | Beefbar Courchevel |
-
----
+Outil de planification et de publication Instagram pour les établissements Oetker Collection (APG, CSM, HDCER, BB).
 
 ## Stack technique
 
-| Service | Usage | Gratuit ? |
-|---------|-------|-----------|
-| **Vercel** | Hébergement & API serverless | ✅ Plan Hobby |
-| **Firebase Firestore** | Base de données (posts, settings, hashtags) | ✅ Plan Spark |
-| **Firebase Auth** | Authentification par email | ✅ Plan Spark |
-| **Cloudinary** | Stockage images & vidéos | ✅ Plan Free |
-| **Groq** | Génération de captions par IA (Llama 4) | ✅ Plan Free |
-| **GitHub** | Versioning & déploiement continu | ✅ |
-
----
-
-## Variables d'environnement (Vercel)
-
-À configurer dans **Vercel → Settings → Environment Variables** :
-
-```
-VITE_FIREBASE_API_KEY
-VITE_FIREBASE_AUTH_DOMAIN
-VITE_FIREBASE_PROJECT_ID
-VITE_CLOUDINARY_CLOUD_NAME
-VITE_CLOUDINARY_UPLOAD_PRESET
-GROQ_API_KEY
-```
-
----
-
-## Déploiement
-
-1. **Firebase** — Créer un projet, activer Firestore + Auth (email/password), récupérer les clés de config
-2. **Cloudinary** — Créer un compte, créer un upload preset "Unsigned" (`oh_gallery`)
-3. **Groq** — Créer un compte sur console.groq.com, générer une clé API
-4. **GitHub** — Pusher le code sur un repository
-5. **Vercel** — Importer le repo GitHub, ajouter les variables d'environnement, déployer
-
-### Règles Firestore (Security Rules)
-
-```js
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}
-```
-
----
-
-## Fonctionnalités
-
-### Calendrier
-- Vue mensuelle avec drag & drop des posts entre les jours
-- Génération automatique du planning selon le rythme défini par établissement
-- Répartition configurable par type (Reels / Carrousels / Photos)
-- Panneau jour (bottom sheet sur mobile)
-
-### Fiches post
-- Sélection du compte, type, statut
-- Analyse d'image par IA → génération automatique du sujet + caption
-- Captions personnalisées par établissement (ton, style, règles propres)
-- Exactement 5 hashtags par caption (obligatoires + aléatoires)
-- Upload média ou sélection depuis la Librairie
-- Duplication vers une autre date / un autre compte
-
-### Librairie
-- Organisation par établissement et sous-dossiers (Chambres, Extérieur, F&B…)
-- Sélection multiple pour modifier les tags en lot
-- Génération batch : grouper des images, générer des posts complets en une fois
-
-### Publication
-- Vue complète image + caption par post
-- Copie de caption en un clic
-- Téléchargement d'image individuel ou groupé
-- Modification du statut directement depuis la vue
-
-### Preview
-- Simulation du feed Instagram par compte
-- Navigation dans les carrousels (images + vidéos)
-
-### Récap & Export
-- Statistiques mensuelles par compte
-- Export CSV compatible Later / Buffer
-- Détection des doublons
-
----
-
-## Mobile
-
-L'interface s'adapte automatiquement aux écrans < 768px :
-- Navigation par tab bar en bas (style iOS)
-- Panneau jour en bottom sheet
-- Cartes Publication en colonne (image + caption empilées)
-- Inputs à 16px pour éviter le zoom iOS
-
----
+- **React 18 + Vite** — UI
+- **Firebase Firestore** — stockage des posts, config, librairie
+- **Firebase Auth** — authentification email/mot de passe
+- **Cloudinary** — stockage et CDN des médias
+- **Groq (Llama 4)** — génération de captions IA
+- **Vercel** — hébergement + fonction serverless (`api/generate.js`)
 
 ## Structure du projet
 
 ```
-/
-├── api/
-│   └── generate.js       # Endpoint Vercel (Groq : texte + vision)
-├── src/
-│   ├── App.jsx            # Application complète (composants + logique)
-│   └── main.jsx           # Point d'entrée React
-├── index.html
-├── package.json
-├── vite.config.js
-└── vercel.json
+src/
+├── App.jsx                   # Composant racine, layout desktop/mobile
+├── lib/
+│   ├── firebase.js           # Init Firebase + exports Firestore/Auth
+│   ├── defaults.js           # Constantes par défaut + Contexts React
+│   ├── tokens.js             # Design system (couleurs, polices, styles partagés)
+│   ├── dates.js              # Utilitaires dates, constantes, statuts
+│   └── ai.js                 # Pipeline IA (analyse image → caption)
+├── hooks/
+│   └── useIsMobile.js        # Détection mobile (breakpoint 768px)
+└── components/
+    ├── LoginPage.jsx          # Page de connexion Firebase
+    ├── Settings.jsx           # Panneau paramètres (4 onglets)
+    ├── OpenClosedPanel.jsx    # Statut ouvert/fermé par compte
+    ├── Stats.jsx              # Statistiques mensuelles
+    ├── MonthlyRecap.jsx       # Récap objectifs vs réel
+    ├── ExportButton.jsx       # Export CSV + vue "Prêt à programmer"
+    ├── CalendarMonth.jsx      # Grille calendrier avec drag & drop
+    ├── LibraryPicker.jsx      # Sélecteur média (multi-sélection + filtre sous-dossier)
+    ├── PostEditor.jsx         # Formulaire d'édition de post
+    ├── DayView.jsx            # Panneau d'un jour (CRUD posts)
+    ├── FeedPreview.jsx        # Simulation grille Instagram
+    ├── Archive.jsx            # Historique par mois
+    ├── Library.jsx            # Gestion librairie + batch IA
+    ├── Publication.jsx        # Vue publication (Manqué + Programmé uniquement)
+    └── Guide.jsx              # Guide d'utilisation
 ```
 
----
+## Variables d'environnement
 
-## Dépannage
+```env
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_CLOUDINARY_CLOUD_NAME=
+VITE_CLOUDINARY_UPLOAD_PRESET=
+GROQ_API_KEY=                  # côté serveur (Vercel), non exposé au client
+```
 
-**Écran blanc au chargement**
-→ Vérifier la console navigateur (F12). Probablement une variable d'environnement manquante ou une erreur de syntaxe après modification du code.
+## Statuts des posts
 
-**La génération de caption ne fonctionne pas**
-→ Vérifier `GROQ_API_KEY` dans Vercel → Environment Variables. Redéployer après modification.
+| Statut | Couleur | Signification |
+|--------|---------|---------------|
+| 🟠 Brouillon | Orange | Post créé, non traité |
+| 🔵 En cours | Bleu | En cours de rédaction |
+| 🟢 Prêt | Vert clair | Caption validée, prêt à programmer |
+| 🟩 Programmé | Vert foncé | Programmé dans Meta Business Suite / Later |
+| ⚫ Publié | Gris | Publié et archivé |
+| 🔴 Manqué | Rouge | Date passée et non publié — alerte automatique |
 
-**Les images ne s'uploadent pas**
-→ Vérifier `VITE_CLOUDINARY_CLOUD_NAME` et `VITE_CLOUDINARY_UPLOAD_PRESET`. S'assurer que le preset est bien en mode "Unsigned" dans Cloudinary.
+> Les posts dont la date est dépassée et dont le statut n'est pas "Publié" passent automatiquement en **Manqué** à l'affichage (calcul dynamique, non persisté en base).
 
-**Les données ne se sauvegardent pas**
-→ Vérifier les règles Firestore (l'utilisateur doit être authentifié). Vérifier `VITE_FIREBASE_PROJECT_ID`.
+## Onglet Publication
 
-**Build Vercel échoue**
-→ Lire les logs de build dans Vercel → Deployments → View Build Logs. Souvent une erreur de syntaxe JSX ou une variable non définie.
+Affiche uniquement :
+1. **Posts Manqués** — triés du plus récent au plus ancien (à traiter en priorité)
+2. **Posts Programmés** — triés du plus proche au plus lointain
+
+Les posts en Brouillon, En cours, Prêt ou Publié n'apparaissent pas dans cet onglet.
+
+## Librairie
+
+- Upload multi-fichiers par compte et sous-dossier
+- Filtre par compte puis par sous-dossier (clic = affichage exclusif)
+- **Sélection multiple** depuis le picker de media — valider avec "Valider (N)"
+- Mode batch : filtre par sous-dossier, groupes d'images → génération IA → placement automatique dans le calendrier
+
+## Lancer en local
+
+```bash
+npm install
+npm run dev
+```
+
+## Déployer sur Vercel
+
+```bash
+vercel --prod
+```
+
+Ajouter toutes les variables d'environnement dans le dashboard Vercel. `GROQ_API_KEY` doit être côté serveur uniquement (pas de préfixe `VITE_`).
