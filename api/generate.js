@@ -47,9 +47,8 @@ export default async function handler(req, res) {
                   { type: 'text', text: prompt },
                 ],
               }],
-              max_tokens: 1200,
+              max_tokens: 1500,
               temperature: 0.7,
-              response_format: { type: "json_object" },
             }),
           });
 
